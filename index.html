@@ -1,0 +1,1617 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <!--Potom odeber noindex-->
+    <meta name="robots" content="noindex">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Startovka - Letištní provoz</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase App & Realtime Database SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .btn-touch {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+            .btn-touch:active {
+                transform: scale(0.97);
+            }
+
+        .modal-backdrop {
+            background-color: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+    </style>
+</head>
+<body class="text-slate-900 min-h-screen flex flex-col pb-12">
+
+    <!-- Header / Navigační lišta -->
+    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-40 border-b-4 border-blue-500">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+
+            <!-- Logo & Název -->
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-blue-600 rounded-xl shadow-md">
+                    <i data-lucide="plane-takeoff" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-black tracking-wide uppercase flex items-center gap-2">
+                        E-Startovka
+                        <span class="text-[10px] normal-case bg-blue-900 text-blue-300 font-semibold px-2 py-0.5 rounded-full border border-blue-700">v3.1 Online Firebase</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Deník provozu větroňů a vlečných letadel</p>
+                </div>
+            </div>
+
+            <!-- Přepínání hlavních tabů / Záložek -->
+            <nav class="flex items-center space-x-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
+                <button id="tab-today-btn" onclick="switchTab('today')" class="btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow">
+                    <i data-lucide="activity" class="w-4 h-4"></i>
+                    <span>Dnešní provoz</span>
+                </button>
+                <button id="tab-history-btn" onclick="switchTab('history')" class="btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                    <span>Historie letů</span>
+                </button>
+            </nav>
+
+            <!-- Uživatelský profil & Ovládací tlačítka -->
+            <div class="flex items-center space-x-2">
+                <!-- Odznak Role (Admin / Divák) -->
+                <div id="user-role-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-slate-800 border-slate-700 text-slate-300">
+                    <i data-lucide="eye" class="w-4 h-4 text-amber-400"></i>
+                    <span id="user-role-text">Režim Čtení (Divák)</span>
+                </div>
+
+                <!-- Tlačítko pro Správu -->
+                <button id="open-fleet-modal-btn" onclick="openFleetModal()" class="btn-touch hidden flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-2 rounded-xl border border-slate-700 transition">
+                    <i data-lucide="settings" class="w-4 h-4 text-blue-400"></i>
+                    <span class="hidden md:inline">Správa flotily & účtů</span>
+                </button>
+
+                <!-- Auth tlačítko -->
+                <button id="auth-action-btn" class="btn-touch flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow">
+                    <i data-lucide="lock" class="w-4 h-4"></i>
+                    <span id="auth-btn-text">Přihlásit Správce</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Banner upozornění pro Diváka -->
+    <div id="viewer-warning-banner" class="bg-amber-500 text-slate-950 px-4 py-2 shadow-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center text-xs font-bold">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="shield-alert" class="w-4 h-4 shrink-0"></i>
+                <span>Jste v režimu Pouze pro čtení (Divák). Pro zadávání startů, zapisování přistání a správy dat se přihlaste jako Správce.</span>
+            </div>
+            <button onclick="openAuthModal()" class="underline hover:text-white font-black ml-2">Přihlásit se</button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT CONTAINERS -->
+    <main class="max-w-7xl mx-auto w-full p-3 sm:p-6 flex-grow">
+
+        <!-- TAB 1: DNEŠNÍ PROVOZ -->
+        <div id="tab-today-content" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Levý panel: Formulář pro nový start -->
+            <section class="lg:col-span-5 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between relative h-fit">
+
+                <!-- Overlay zablokování pro diváka -->
+                <div id="form-disabled-overlay" class="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] rounded-2xl z-10 flex flex-col items-center justify-center p-6 text-center">
+                    <div class="bg-white/95 p-5 rounded-2xl shadow-xl border border-slate-200 max-w-xs">
+                        <i data-lucide="lock" class="w-10 h-10 text-slate-400 mx-auto mb-2"></i>
+                        <h3 class="font-bold text-slate-800 text-sm uppercase mb-1">Formulář uzamčen</h3>
+                        <p class="text-xs text-slate-500 mb-4">Zadávání nových letů vyžaduje přihlášení v roli Správce.</p>
+                        <button onclick="openAuthModal()" class="btn-touch w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow transition">
+                            Přihlásit se
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="plus-circle" class="w-6 h-6 text-blue-600"></i>
+                            <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Zadat Nový Start</h2>
+                        </div>
+                    </div>
+
+                    <form id="start-form" class="space-y-4" autocomplete="off">
+                        <!-- Výběr větroně -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-bold text-slate-700 uppercase">Větroň / Letadlo</label>
+                                <button type="button" onclick="openFleetModal()" class="text-[11px] text-blue-600 hover:underline font-bold">+ Přidat letadlo</button>
+                            </div>
+                            <select id="aircraft-select" class="w-full bg-slate-50 border-2 border-slate-300 text-slate-900 font-bold text-base rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                                <!-- Dynamicky naplněno JS -->
+                            </select>
+                        </div>
+
+                        <!-- Výběr posádky -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Pilot / Žák</label>
+                                <input type="text" id="pilot-name" placeholder="Jméno pilota" required autocomplete="off" class="w-full bg-slate-50 border-2 border-slate-300 text-slate-900 font-semibold text-sm rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Instruktor / 2. pilot</label>
+                                <input type="text" id="copilot-name" placeholder="Nepovinné" autocomplete="off" class="w-full bg-slate-50 border-2 border-slate-300 text-slate-900 font-semibold text-sm rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Úloha / Cíl letu -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Úloha / Cíl letu</label>
+                            <input type="text" id="task-name" placeholder="např. Úloha 3, Navigace, Termika (nepovinné)" autocomplete="off" class="w-full bg-slate-50 border-2 border-slate-300 text-slate-900 font-semibold text-sm rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+
+                        <!-- Typ startu -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Typ startu</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="launch-type" value="Naviják" checked class="peer sr-only">
+                                    <div class="p-3 text-center rounded-xl border-2 border-slate-300 font-bold text-xs text-slate-700 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 transition">
+                                        Naviják
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="launch-type" value="Aerovlek" class="peer sr-only">
+                                    <div class="p-3 text-center rounded-xl border-2 border-slate-300 font-bold text-xs text-slate-700 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 transition">
+                                        Aerovlek
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="launch-type" value="Vlastní motor" class="peer sr-only">
+                                    <div class="p-3 text-center rounded-xl border-2 border-slate-300 font-bold text-xs text-slate-700 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 transition">
+                                        Vlastní
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Sekce pro Aerovlek -->
+                        <div id="tow-details-section" class="hidden bg-amber-50 p-4 rounded-xl border-2 border-amber-300 space-y-3">
+                            <div class="flex items-center space-x-2 text-amber-900 font-bold text-xs uppercase">
+                                <i data-lucide="plane" class="w-4 h-4 text-amber-600"></i>
+                                <span>Údaje o Vlečném Letadle</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Vlečné letadlo</label>
+                                    <select id="tow-aircraft-select" class="w-full bg-white border-2 border-amber-300 text-slate-900 font-semibold text-xs rounded-xl p-2.5 outline-none">
+                                        <!-- Naplněno JS -->
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Vlekař (Pilot vlečné)</label>
+                                    <input type="text" id="tow-pilot-name" placeholder="Jméno vlekaře" autocomplete="off" class="w-full bg-white border-2 border-amber-300 text-slate-900 font-semibold text-xs rounded-xl p-2.5 outline-none">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tlačítko Start -->
+                        <button type="submit" id="submit-start-btn" class="btn-touch w-full bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-black py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition active:bg-emerald-700">
+                            <i data-lucide="plane-takeoff" class="w-6 h-6"></i>
+                            <span>ODSTARTOVAT</span>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Pravý panel: Probíhající lety a Dnešní deník -->
+            <div class="lg:col-span-7 space-y-6">
+
+                <!-- Sekce: Probíhající lety -->
+                <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="radio" class="w-6 h-6 text-emerald-600 animate-pulse"></i>
+                            <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Probíhající lety</h2>
+                        </div>
+                        <span id="active-count" class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-300">0 ve vzduchu</span>
+                    </div>
+
+                    <div id="active-flights-list" class="space-y-4">
+                        <div id="no-active-flights" class="text-center py-8 text-slate-400 font-medium border-2 border-dashed border-slate-200 rounded-xl">
+                            Aktuálně není ve vzduchu žádné letadlo.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sekce: Dnešní deník letů -->
+                <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-3 mb-4 gap-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="sun" class="w-6 h-6 text-amber-500"></i>
+                            <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Dnešní deník letů</h2>
+                        </div>
+
+                        <button onclick="exportTodayCSV()" class="btn-touch inline-flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-2 px-3.5 rounded-xl transition shadow-sm">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Exportovat Dnešek (CSV)</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 text-slate-600 uppercase font-bold">
+                                <tr>
+                                    <th class="p-2.5 rounded-l-lg">Letadlo / Vlečná</th>
+                                    <th class="p-2.5">Posádka / Vlekař</th>
+                                    <th class="p-2.5">Úloha</th>
+                                    <th class="p-2.5">Start</th>
+                                    <th class="p-2.5">Vzlet</th>
+                                    <th class="p-2.5">Přistání Vlečná / Větroň</th>
+                                    <th class="p-2.5">Doba letu</th>
+                                    <th class="p-2.5 text-center rounded-r-lg">Akce</th>
+                                </tr>
+                            </thead>
+                            <tbody id="today-completed-flights-table" class="divide-y divide-slate-100">
+                                <!-- JS naplnění -->
+                            </tbody>
+                        </table>
+                        <div id="no-today-completed-flights" class="text-center py-6 text-slate-400 text-xs font-medium">
+                            Dnes zatím nebyly dokončeny žádné lety.
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+
+        <!-- TAB 2: HISTORIE LETŮ -->
+        <div id="tab-history-content" class="hidden space-y-6">
+
+            <!-- Panel Filtrů & Vyhledávání -->
+            <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 pb-3 mb-4 gap-3">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="filter" class="w-5 h-5 text-blue-600"></i>
+                        <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Filtrování a Vyhledávání v Historii</h2>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="resetFilters()" class="btn-touch text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl border border-slate-300 transition">
+                            Resetovat filtry
+                        </button>
+                        <button onclick="exportFilteredCSV()" class="btn-touch flex items-center space-x-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-xl transition shadow">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Exportovat Filtrované (CSV)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mřížka filtrů -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Jméno / Úloha</label>
+                        <div class="relative">
+                            <input type="text" id="filter-search" placeholder="Hledat jméno nebo úlohu..." oninput="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs font-semibold rounded-xl p-2.5 pl-8 outline-none focus:ring-2 focus:ring-blue-500">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-2.5 top-3"></i>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Imatrikulace letadla</label>
+                        <select id="filter-aircraft" onchange="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs font-semibold rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Všechna letadla</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Typ startu</label>
+                        <select id="filter-launch" onchange="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs font-semibold rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Všechny typy</option>
+                            <option value="Naviják">Naviják</option>
+                            <option value="Aerovlek">Aerovlek</option>
+                            <option value="Vlastní motor">Vlastní motor</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Datum (Od - Do)</label>
+                        <div class="flex items-center space-x-1">
+                            <input type="date" id="filter-date-from" onchange="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-[11px] font-semibold rounded-xl p-2 outline-none">
+                            <span class="text-slate-400 font-bold">-</span>
+                            <input type="date" id="filter-date-to" onchange="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-[11px] font-semibold rounded-xl p-2 outline-none">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Výpis historie -->
+            <div id="history-days-container" class="space-y-6"></div>
+
+            <div id="no-history-msg" class="hidden text-center py-12 bg-white rounded-2xl border border-slate-200">
+                <i data-lucide="folder-open" class="w-12 h-12 text-slate-300 mx-auto mb-2"></i>
+                <p class="text-sm text-slate-500 font-semibold">Žádné lety neodpovídají zvoleným filtrům nebo ještě nebyly zaznamenány žádné lety.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL PRO PŘIHLÁŠENÍ -->
+    <div id="auth-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="shield-check" class="w-6 h-6 text-blue-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide">Přihlášení Správce</h3>
+                </div>
+                <button onclick="closeAuthModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <form id="auth-form" class="space-y-4" autocomplete="off">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Uživatelské jméno</label>
+                    <input type="text" id="auth-username" value="" autocomplete="off" placeholder="Napište jméno uživatele" required class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Heslo</label>
+                    <input type="password" id="auth-password" value="" autocomplete="new-password" placeholder="Napište heslo" required class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div id="auth-error-msg" class="hidden text-xs text-red-600 font-bold bg-red-50 border border-red-200 p-2.5 rounded-xl"></div>
+
+                <div class="space-y-2 pt-2">
+                    <button type="submit" id="login-btn" class="btn-touch w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm py-3 px-4 rounded-xl shadow transition">
+                        Přihlásit se jako Správce
+                    </button>
+                    <button type="button" onclick="closeAuthModal()" class="btn-touch w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl border border-slate-300 transition">
+                        Pokračovat bez přihlášení (Divák)
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PRO SPRÁVU LETADEL A ÚČTŮ -->
+    <div id="fleet-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="settings" class="w-6 h-6 text-blue-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide">Správa Flotily a Správcovských Účtů</h3>
+                </div>
+                <button onclick="closeFleetModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto space-y-6 flex-grow pr-1">
+                <form id="add-aircraft-form" class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3" autocomplete="off">
+                    <h4 class="text-xs font-bold uppercase text-slate-700">Přidat letadlo do nabídky</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Kategorie</label>
+                            <select id="modal-aircraft-category" class="w-full bg-white border border-slate-300 text-xs font-semibold rounded-lg p-2 outline-none">
+                                <option value="gliders">Větroň / Letadlo</option>
+                                <option value="tows">Vlečné letadlo</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Imatrikulace + Typ</label>
+                            <input type="text" id="modal-aircraft-name" placeholder="např. OK-9999 (DG-300)" required autocomplete="off" class="w-full bg-white border border-slate-300 text-xs font-semibold rounded-lg p-2 outline-none">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2 px-4 rounded-lg transition flex justify-center items-center space-x-1">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Uložit letadlo nastálo</span>
+                    </button>
+                </form>
+
+                <div class="space-y-3">
+                    <div>
+                        <h4 class="text-xs font-bold uppercase text-slate-500 mb-2">Vlastní Větroně:</h4>
+                        <div id="modal-gliders-list" class="space-y-1.5"></div>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-bold uppercase text-slate-500 mb-2">Vlastní Vlečné:</h4>
+                        <div id="modal-tows-list" class="space-y-1.5"></div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-4">
+                    <form id="add-user-form" class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 space-y-3" autocomplete="off">
+                        <h4 class="text-xs font-bold uppercase text-emerald-900 flex items-center space-x-1">
+                            <i data-lucide="user-plus" class="w-4 h-4 text-emerald-600"></i>
+                            <span>Vytvořit nový účet Správce</span>
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Jméno správce</label>
+                                <input type="text" id="new-username" placeholder="Jméno" required autocomplete="off" class="w-full bg-white border border-slate-300 text-xs font-semibold rounded-lg p-2 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Heslo</label>
+                                <input type="password" id="new-user-password" placeholder="Heslo" required autocomplete="new-password" class="w-full bg-white border border-slate-300 text-xs font-semibold rounded-lg p-2 outline-none">
+                            </div>
+                        </div>
+                        <div id="new-user-msg" class="hidden text-xs font-bold"></div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-4 rounded-lg transition flex justify-center items-center space-x-1">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                            <span>Vytvořit účet</span>
+                        </button>
+                    </form>
+
+                    <div class="mt-3">
+                        <h4 class="text-xs font-bold uppercase text-slate-500 mb-2">Seznam účtů správců:</h4>
+                        <div id="modal-users-list" class="space-y-1.5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-200 text-right">
+                <button onclick="closeFleetModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-4 py-2 rounded-xl transition">
+                    Zavřít
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PRO ÚPRAVU ČASŮ LETU A ÚLOHY -->
+    <div id="edit-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-blue-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide">Zpětná úprava letu</h3>
+                </div>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <form id="edit-flight-form" class="space-y-4" autocomplete="off">
+                <input type="hidden" id="edit-flight-id">
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Úloha / Cíl letu</label>
+                    <input type="text" id="edit-task-name" placeholder="Nepovinné" class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Čas Vzletu</label>
+                    <input type="time" step="1" id="edit-takeoff-time" required class="w-full bg-slate-50 border border-slate-300 font-mono font-bold text-base rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div id="edit-tow-landing-container" class="hidden">
+                    <label class="block text-xs font-bold text-amber-900 uppercase mb-1">Přistání Vlečné</label>
+                    <input type="time" step="1" id="edit-tow-landing-time" class="w-full bg-amber-50 border border-amber-300 font-mono font-bold text-base rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+
+                <div id="edit-glider-landing-container">
+                    <label class="block text-xs font-bold text-blue-900 uppercase mb-1">Přistání Větroně</label>
+                    <input type="time" step="1" id="edit-glider-landing-time" class="w-full bg-blue-50 border border-blue-300 font-mono font-bold text-base rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-200">
+                    <button type="button" onclick="closeEditModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-4 py-2.5 rounded-xl transition">
+                        Zrušit
+                    </button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
+                        Uložit změny
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PRO BEZPEČNÉ SMAZÁNÍ LETU S OPIŠENÍM ČÍSLA -->
+    <div id="delete-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide text-red-600">Smazat let</h3>
+                </div>
+                <button onclick="closeDeleteModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-600 mb-3">Opravdu chcete tento let trvale smazat? Pro potvrzení prosím opište níže uvedené číslo:</p>
+            <div id="delete-random-number-display" class="bg-slate-100 border border-slate-300 text-center font-mono font-black text-2xl tracking-widest text-slate-800 p-3 rounded-xl mb-3 select-none">
+                1234
+            </div>
+            <input type="text" id="delete-confirm-input" placeholder="Opište číslo..." autocomplete="off" class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-3 mb-2 outline-none focus:ring-2 focus:ring-red-500">
+            <div id="delete-error-msg" class="hidden text-xs text-red-600 font-bold mb-3">Nesprávné číslo! Zkuste to znovu.</div>
+            <div class="flex space-x-2 pt-2">
+                <button type="button" onclick="closeDeleteModal()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold py-2.5 rounded-xl transition">
+                    Zrušit
+                </button>
+                <button type="button" onclick="executeDeleteFlight()" class="w-1/2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2.5 rounded-xl transition shadow">
+                    Smazat let
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APLIKACE S FIREBASE -->
+    <script>
+        // ==========================================
+        // 1. NASTAVENÍ FIREBASE REALTIME DATABASE
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAEriQbXhpVKtcfcscdP9mAHa2TsmVGodM",
+            authDomain: "e-startovka.firebaseapp.com",
+            databaseURL: "https://e-startovka-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "e-startovka",
+            storageBucket: "e-startovka.firebasestorage.app",
+            messagingSenderId: "916443891494",
+            appId: "1:916443891494:web:b692213573a329fc65e3e7",
+            measurementId: "G-NV2T63P4SW"
+        };
+
+        // Inicializace Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        const STORAGE_KEY_LOGGED_USER = 'startovka_logged_user_v3';
+
+        const defaultGliders = [
+            "OK-4704 (L-13 Blaník)",
+            "OK-5602 (VSO-10)",
+            "OK-4486 (DG-101G)"
+        ];
+
+        const defaultTows = [
+            "OK-DUO 79 (Airlony Skyline)",
+        ];
+
+        async function hashPassword(password, salt = "StartovkaSalt2026_") {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(salt + password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        let failedAttempts = 0;
+        let lockUntil = 0;
+
+        // Paměť pro posledního vlekaře
+        let lastTowPilot = localStorage.getItem('startovka_last_tow_pilot') || '';
+
+        // Lokální proměnné synchronizované v reálném čase přes Firebase
+        let activeFlights = [];
+        let completedFlights = [];
+        let customGliders = [];
+        let customTows = [];
+        let systemUsers = [];
+        let loggedUser = localStorage.getItem(STORAGE_KEY_LOGGED_USER) || null;
+
+        let currentTab = 'today';
+        let flightToDeleteId = null;
+        let currentRandomCode = "";
+
+        const aircraftSelect = document.getElementById('aircraft-select');
+        const towAircraftSelect = document.getElementById('tow-aircraft-select');
+        const startForm = document.getElementById('start-form');
+        const activeFlightsContainer = document.getElementById('active-flights-list');
+        const noActiveFlightsEl = document.getElementById('no-active-flights');
+        const todayTableBody = document.getElementById('today-completed-flights-table');
+        const noTodayCompletedEl = document.getElementById('no-today-completed-flights');
+        const activeCountBadge = document.getElementById('active-count');
+        const towDetailsSection = document.getElementById('tow-details-section');
+        const launchTypeRadios = document.querySelectorAll('input[name="launch-type"]');
+
+        const fleetModal = document.getElementById('fleet-modal');
+        const addAircraftForm = document.getElementById('add-aircraft-form');
+        const addUserForm = document.getElementById('add-user-form');
+        const modalGlidersList = document.getElementById('modal-gliders-list');
+        const modalTowsList = document.getElementById('modal-tows-list');
+        const modalUsersList = document.getElementById('modal-users-list');
+
+        const editModal = document.getElementById('edit-modal');
+        const editFlightForm = document.getElementById('edit-flight-form');
+
+        const authModal = document.getElementById('auth-modal');
+        const authForm = document.getElementById('auth-form');
+        const authActionBtn = document.getElementById('auth-action-btn');
+        const authBtnText = document.getElementById('auth-btn-text');
+        const userRoleBadge = document.getElementById('user-role-badge');
+        const viewerWarningBanner = document.getElementById('viewer-warning-banner');
+        const formDisabledOverlay = document.getElementById('form-disabled-overlay');
+        const authErrorMsg = document.getElementById('auth-error-msg');
+        const openFleetModalBtn = document.getElementById('open-fleet-modal-btn');
+
+        // ==========================================
+        // 2. FIREBASE REAL-TIME POSLECH DAT
+        // ==========================================
+        database.ref('activeFlights').on('value', (snapshot) => {
+            const val = snapshot.val();
+            activeFlights = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+            if (currentTab === 'today') renderTodayView();
+        });
+
+        database.ref('completedFlights').on('value', (snapshot) => {
+            const val = snapshot.val();
+            completedFlights = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+            if (currentTab === 'today') {
+                renderTodayCompletedFlights();
+            } else {
+                applyHistoryFilters();
+            }
+        });
+
+        database.ref('customGliders').on('value', (snapshot) => {
+            const val = snapshot.val();
+            customGliders = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+            populateAircraftSelects();
+            if (!fleetModal.classList.contains('hidden')) renderFleetLists();
+        });
+
+        database.ref('customTows').on('value', (snapshot) => {
+            const val = snapshot.val();
+            customTows = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+            populateAircraftSelects();
+            if (!fleetModal.classList.contains('hidden')) renderFleetLists();
+        });
+
+        database.ref('systemUsers').on('value', async (snapshot) => {
+            const val = snapshot.val();
+            if (!val) {
+                const initialUser = {
+                    username: "Správce",
+                    passwordHash: "e3ed28d43b7f8c30c324771bef7f66454fe4a5e75193883d0b6374234a4eb898"
+                };
+                database.ref('systemUsers').set([initialUser]);
+            } else {
+                systemUsers = Array.isArray(val) ? val : Object.values(val);
+                if (!fleetModal.classList.contains('hidden')) renderFleetLists();
+            }
+        });
+
+        function saveData() {
+            database.ref('activeFlights').set(activeFlights);
+            database.ref('completedFlights').set(completedFlights);
+            database.ref('customGliders').set(customGliders);
+            database.ref('customTows').set(customTows);
+
+            if (loggedUser) {
+                localStorage.setItem(STORAGE_KEY_LOGGED_USER, loggedUser);
+            } else {
+                localStorage.removeItem(STORAGE_KEY_LOGGED_USER);
+            }
+        }
+
+        function getRegistration(fullAircraftString) {
+            if (!fullAircraftString) return '';
+            return fullAircraftString.split(' ')[0];
+        }
+
+        window.switchTab = function(tabName) {
+            currentTab = tabName;
+            const todayContent = document.getElementById('tab-today-content');
+            const historyContent = document.getElementById('tab-history-content');
+            const todayBtn = document.getElementById('tab-today-btn');
+            const historyBtn = document.getElementById('tab-history-btn');
+
+            if (tabName === 'today') {
+                todayContent.classList.remove('hidden');
+                historyContent.classList.add('hidden');
+                todayBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+                historyBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+                renderTodayView();
+            } else {
+                todayContent.classList.add('hidden');
+                historyContent.classList.remove('hidden');
+                todayBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+                historyBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+                populateFilterAircraftOptions();
+                applyHistoryFilters();
+            }
+        };
+
+        function updateUIForRole() {
+            const isAdmin = !!loggedUser;
+
+            if (isAdmin) {
+                userRoleBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-emerald-950 border-emerald-700 text-emerald-300";
+                userRoleBadge.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i><span>Správce: ${loggedUser}</span>`;
+                authBtnText.textContent = "Odhlásit";
+                viewerWarningBanner.classList.add('hidden');
+                formDisabledOverlay.classList.add('hidden');
+                openFleetModalBtn.classList.remove('hidden');
+            } else {
+                userRoleBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-slate-800 border-slate-700 text-slate-300";
+                userRoleBadge.innerHTML = `<i data-lucide="eye" class="w-4 h-4 text-amber-400"></i><span>Režim Čtení (Divák)</span>`;
+                authBtnText.textContent = "Přihlásit Správce";
+                viewerWarningBanner.classList.remove('hidden');
+                formDisabledOverlay.classList.remove('hidden');
+                openFleetModalBtn.classList.add('hidden');
+            }
+
+            lucide.createIcons();
+            if (currentTab === 'today') {
+                renderTodayView();
+            } else {
+                applyHistoryFilters();
+            }
+        }
+
+        window.openAuthModal = function() {
+            authErrorMsg.classList.add('hidden');
+            document.getElementById('auth-username').value = '';
+            document.getElementById('auth-password').value = '';
+            authModal.classList.remove('hidden');
+        };
+
+        window.closeAuthModal = function() {
+            authModal.classList.add('hidden');
+        };
+
+        authActionBtn.addEventListener('click', () => {
+            if (loggedUser) {
+                loggedUser = null;
+                saveData();
+                updateUIForRole();
+            } else {
+                openAuthModal();
+            }
+        });
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            authErrorMsg.classList.add('hidden');
+
+            if (Date.now() < lockUntil) {
+                const remainingSecs = Math.ceil((lockUntil - Date.now()) / 1000);
+                authErrorMsg.textContent = `Příliš mnoho neúspěšných pokusů. Zkuste to za ${remainingSecs} s.`;
+                authErrorMsg.classList.remove('hidden');
+                return;
+            }
+
+            const usernameInput = document.getElementById('auth-username').value.trim();
+            const passwordInput = document.getElementById('auth-password').value;
+            const inputHash = await hashPassword(passwordInput);
+
+            const matchedUser = systemUsers.find(u =>
+                u.username.toLowerCase() === usernameInput.toLowerCase() && u.passwordHash === inputHash
+            );
+
+            if (matchedUser) {
+                failedAttempts = 0;
+                loggedUser = matchedUser.username;
+                saveData();
+                updateUIForRole();
+                closeAuthModal();
+            } else {
+                failedAttempts++;
+                if (failedAttempts >= 3) {
+                    lockUntil = Date.now() + 30000;
+                    authErrorMsg.textContent = "Příliš mnoho neúspěšných pokusů. Přihlašování zablokováno na 30s.";
+                } else {
+                    authErrorMsg.textContent = `Nesprávné uživatelské jméno nebo heslo. (Pokus ${failedAttempts}/3)`;
+                }
+                authErrorMsg.classList.remove('hidden');
+            }
+        });
+
+        window.openDeleteModal = function(id) {
+            if (!loggedUser) return;
+            flightToDeleteId = id;
+            currentRandomCode = String(Math.floor(1000 + Math.random() * 9000));
+            document.getElementById('delete-random-number-display').textContent = currentRandomCode;
+            document.getElementById('delete-confirm-input').value = '';
+            document.getElementById('delete-error-msg').classList.add('hidden');
+            document.getElementById('delete-modal').classList.remove('hidden');
+        };
+
+        window.closeDeleteModal = function() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            flightToDeleteId = null;
+        };
+
+        window.executeDeleteFlight = function() {
+            const inputVal = document.getElementById('delete-confirm-input').value.trim();
+            if (inputVal !== currentRandomCode) {
+                document.getElementById('delete-error-msg').classList.remove('hidden');
+                return;
+            }
+
+            activeFlights = activeFlights.filter(f => f.id !== flightToDeleteId);
+            completedFlights = completedFlights.filter(f => f.id !== flightToDeleteId);
+
+            saveData();
+            if (currentTab === 'today') {
+                renderTodayView();
+            } else {
+                applyHistoryFilters();
+            }
+            closeDeleteModal();
+        };
+
+        function populateAircraftSelects() {
+            aircraftSelect.innerHTML = '';
+            [...defaultGliders, ...customGliders].forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                aircraftSelect.appendChild(opt);
+            });
+
+            towAircraftSelect.innerHTML = '';
+            [...defaultTows, ...customTows].forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                towAircraftSelect.appendChild(opt);
+            });
+        }
+
+        window.openFleetModal = function() {
+            if (!loggedUser) { openAuthModal(); return; }
+            renderFleetLists();
+            fleetModal.classList.remove('hidden');
+        };
+
+        window.closeFleetModal = function() {
+            fleetModal.classList.add('hidden');
+        };
+
+        function renderFleetLists() {
+            modalGlidersList.innerHTML = customGliders.length === 0
+                ? `<div class="text-xs text-slate-400 italic">Žádné vlastní větroně nebyly přidány.</div>`
+                : customGliders.map((g, i) => `
+                    <div class="flex justify-between items-center bg-slate-100 p-2 rounded-lg text-xs font-semibold">
+                        <span>${g}</span>
+                        <button onclick="removeGlider(${i})" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>`).join('');
+
+            modalTowsList.innerHTML = customTows.length === 0
+                ? `<div class="text-xs text-slate-400 italic">Žádné vlastní vlečné nebyly přidány.</div>`
+                : customTows.map((t, i) => `
+                    <div class="flex justify-between items-center bg-amber-50 border border-amber-200 p-2 rounded-lg text-xs font-semibold">
+                        <span>${t}</span>
+                        <button onclick="removeTow(${i})" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>`).join('');
+
+            modalUsersList.innerHTML = systemUsers.length === 0
+                ? `<div class="text-xs text-slate-400 italic">Žádní správci.</div>`
+                : systemUsers.map((u, i) => `
+                    <div class="flex justify-between items-center bg-emerald-50 border border-emerald-200 p-2 rounded-lg text-xs font-semibold">
+                        <span>${u.username}</span>
+                        ${systemUsers.length > 1 ? `<button onclick="removeUser(${i})" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : `<span class="text-[10px] text-slate-400">Hlavní účet</span>`}
+                    </div>`).join('');
+
+            lucide.createIcons();
+        }
+
+        addAircraftForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!loggedUser) return;
+            const category = document.getElementById('modal-aircraft-category').value;
+            const name = document.getElementById('modal-aircraft-name').value.trim();
+            if (!name) return;
+
+            if (category === 'gliders') {
+                if (!customGliders.includes(name) && !defaultGliders.includes(name)) customGliders.push(name);
+            } else {
+                if (!customTows.includes(name) && !defaultTows.includes(name)) customTows.push(name);
+            }
+
+            document.getElementById('modal-aircraft-name').value = '';
+            saveData();
+            populateAircraftSelects();
+            renderFleetLists();
+        });
+
+        addUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!loggedUser) return;
+            const newUsername = document.getElementById('new-username').value.trim();
+            const newPassword = document.getElementById('new-user-password').value;
+            const msgEl = document.getElementById('new-user-msg');
+
+            if (!newUsername || !newPassword) return;
+            if (systemUsers.some(u => u.username.toLowerCase() === newUsername.toLowerCase())) {
+                msgEl.textContent = "Tento uživatel již existuje.";
+                msgEl.className = "text-xs font-bold text-red-600 block";
+                return;
+            }
+
+            const passwordHash = await hashPassword(newPassword);
+            systemUsers.push({ username: newUsername, passwordHash: passwordHash });
+
+            database.ref('systemUsers').set(systemUsers);
+
+            document.getElementById('new-username').value = '';
+            document.getElementById('new-user-password').value = '';
+            msgEl.textContent = `Účet ${newUsername} vytvořen.`;
+            msgEl.className = "text-xs font-bold text-emerald-700 block";
+            renderFleetLists();
+        });
+
+        window.removeGlider = function(i) { if (!loggedUser) return; customGliders.splice(i, 1); saveData(); populateAircraftSelects(); renderFleetLists(); };
+        window.removeTow = function(i) { if (!loggedUser) return; customTows.splice(i, 1); saveData(); populateAircraftSelects(); renderFleetLists(); };
+
+        window.removeUser = function(i) {
+            if (!loggedUser) return;
+            if (systemUsers.length <= 1) {
+                alert('Nelze smazat posledního správce!');
+                return;
+            }
+            systemUsers.splice(i, 1);
+            database.ref('systemUsers').set(systemUsers);
+            renderFleetLists();
+        };
+
+        // Přepínání typů startu s automatickým předvyplněním vlekaře
+        launchTypeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'Aerovlek') {
+                    towDetailsSection.classList.remove('hidden');
+                    const towPilotInput = document.getElementById('tow-pilot-name');
+                    if (!towPilotInput.value && lastTowPilot) {
+                        towPilotInput.value = lastTowPilot;
+                    }
+                } else {
+                    towDetailsSection.classList.add('hidden');
+                }
+            });
+        });
+
+        function getYYYYMMDD(dateObj) {
+            const d = new Date(dateObj);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+
+        function formatCzechDate(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('cs-CZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function formatTime(dateIso) {
+            if (!dateIso) return '-';
+            const d = new Date(dateIso);
+            return d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function formatTimeInput(dateIso) {
+            if (!dateIso) return '';
+            const d = new Date(dateIso);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
+
+        function createIsoFromTimeString(originalIso, timeStr) {
+            if (!timeStr) return null;
+            const baseDate = originalIso ? new Date(originalIso) : new Date();
+            const parts = timeStr.split(':');
+            const newDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), parts[0], parts[1], parts[2] || 0);
+            return newDate.toISOString();
+        }
+
+        function getDurationFormatted(startTime, endTime = new Date()) {
+            if (!startTime) return '-';
+            const diffMs = new Date(endTime) - new Date(startTime);
+            const totalSecs = Math.max(0, Math.floor(diffMs / 1000));
+            const hrs = Math.floor(totalSecs / 3600);
+            const mins = Math.floor((totalSecs % 3600) / 60);
+            const secs = totalSecs % 60;
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+        }
+
+        function getDurationInSeconds(startTime, endTime) {
+            if (!startTime || !endTime) return 0;
+            const diff = new Date(endTime) - new Date(startTime);
+            return Math.max(0, Math.floor(diff / 1000));
+        }
+
+        function formatSecondsToHHMMSS(totalSecs) {
+            const hrs = Math.floor(totalSecs / 3600);
+            const mins = Math.floor((totalSecs % 3600) / 60);
+            const secs = totalSecs % 60;
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+        }
+
+        function recalculateDurations(flight) {
+            if (flight.gliderLandingTime) flight.gliderDuration = getDurationFormatted(flight.takeoffTime, flight.gliderLandingTime);
+            if (flight.towLandingTime) flight.towDuration = getDurationFormatted(flight.takeoffTime, flight.towLandingTime);
+        }
+
+        startForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!loggedUser) { openAuthModal(); return; }
+
+            const aircraft = aircraftSelect.value;
+            const pilot = document.getElementById('pilot-name').value.trim();
+            const copilot = document.getElementById('copilot-name').value.trim();
+            const task = document.getElementById('task-name').value.trim();
+            const launchType = document.querySelector('input[name="launch-type"]:checked').value;
+            if (!aircraft || !pilot) return;
+
+            // Uložení vlekaře do paměti, pokud jde o aerovlek
+            const towPilotVal = document.getElementById('tow-pilot-name').value.trim();
+            if (launchType === 'Aerovlek' && towPilotVal) {
+                lastTowPilot = towPilotVal;
+                localStorage.setItem('startovka_last_tow_pilot', lastTowPilot);
+            }
+
+            const now = new Date();
+            const newFlight = {
+                id: Date.now(),
+                aircraft: aircraft,
+                pilot: pilot,
+                copilot: copilot || '-',
+                task: task || '-',
+                launchType: launchType,
+                takeoffTime: now.toISOString(),
+                towAircraft: launchType === 'Aerovlek' ? towAircraftSelect.value : null,
+                towPilot: launchType === 'Aerovlek' ? (towPilotVal || 'Vlekař') : null,
+                towLandingTime: null,
+                towDuration: '-',
+                gliderLandingTime: null,
+                gliderDuration: '-'
+            };
+
+            activeFlights.unshift(newFlight);
+            saveData();
+            renderTodayView();
+
+            document.getElementById('pilot-name').value = '';
+            document.getElementById('copilot-name').value = '';
+            document.getElementById('task-name').value = '';
+            document.getElementById('tow-pilot-name').value = lastTowPilot; // zachová předvyplnění pro další start
+        });
+
+        function checkAndCompleteFlight(flight) {
+            const isAero = flight.launchType === 'Aerovlek';
+            const isFinished = isAero ? (Boolean(flight.towLandingTime) && Boolean(flight.gliderLandingTime)) : Boolean(flight.gliderLandingTime);
+
+            if (isFinished) {
+                activeFlights = activeFlights.filter(f => f.id !== flight.id);
+                completedFlights.unshift(flight);
+            }
+            saveData();
+            renderTodayView();
+        }
+
+        window.landTowFlight = function(id) {
+            if (!loggedUser) { openAuthModal(); return; }
+            const flight = activeFlights.find(f => f.id === id);
+            if (flight && !flight.towLandingTime) {
+                flight.towLandingTime = new Date().toISOString();
+                flight.towDuration = getDurationFormatted(flight.takeoffTime, flight.towLandingTime);
+                checkAndCompleteFlight(flight);
+            }
+        };
+
+        window.landGliderFlight = function(id) {
+            if (!loggedUser) { openAuthModal(); return; }
+            const flight = activeFlights.find(f => f.id === id);
+            if (flight && !flight.gliderLandingTime) {
+                flight.gliderLandingTime = new Date().toISOString();
+                flight.gliderDuration = getDurationFormatted(flight.takeoffTime, flight.gliderLandingTime);
+                checkAndCompleteFlight(flight);
+            }
+        };
+
+        function renderTodayView() {
+            renderActiveFlights();
+            renderTodayCompletedFlights();
+        }
+
+        function renderActiveFlights() {
+            activeFlightsContainer.innerHTML = '';
+            activeCountBadge.textContent = `${activeFlights.length} ve vzduchu`;
+
+            if (activeFlights.length === 0) {
+                activeFlightsContainer.appendChild(noActiveFlightsEl);
+                return;
+            }
+
+            activeFlights.forEach(flight => {
+                const isAero = flight.launchType === 'Aerovlek';
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border-2 border-slate-300 p-4 rounded-xl flex flex-col gap-3 shadow-sm";
+
+                let towHtml = '';
+                if (isAero) {
+                    towHtml = `
+                        <div class="bg-amber-100/70 border border-amber-300 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mt-1">
+                            <div>
+                                <div class="text-xs font-bold text-amber-900 uppercase flex items-center gap-1">
+                                    <i data-lucide="plane" class="w-3.5 h-3.5 text-amber-700"></i>
+                                    Vlečná: <span class="text-slate-900">${flight.towAircraft || '-'}</span>
+                                </div>
+                                <div class="text-xs font-semibold text-amber-800">Vlekař: ${flight.towPilot || '-'}</div>
+                            </div>
+                            <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                                ${flight.towLandingTime ? `
+                                    <div class="text-right">
+                                        <span class="text-xs font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded">Přistála v ${formatTime(flight.towLandingTime)}</span>
+                                        <div class="text-xs font-mono font-bold text-slate-700">Doba: ${flight.towDuration || '-'}</div>
+                                    </div>
+                                ` : `
+                                    <div class="text-right">
+                                        <div class="text-[10px] font-bold text-amber-800 uppercase">Čas vlečné</div>
+                                        <div class="font-mono font-bold text-sm text-amber-900 timer" data-start="${flight.takeoffTime}">
+                                            ${getDurationFormatted(flight.takeoffTime)}
+                                        </div>
+                                    </div>
+                                    ${loggedUser ? `
+                                        <button onclick="landTowFlight(${flight.id})" class="btn-touch bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-3 py-2 rounded-lg shadow flex items-center space-x-1 transition">
+                                            <i data-lucide="plane-landing" class="w-4 h-4"></i>
+                                            <span>Přistání vlečné</span>
+                                        </button>
+                                    ` : ``}
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-black text-lg text-slate-900">${flight.aircraft || '-'}</span>
+                                <span class="text-xs ${isAero ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-blue-100 text-blue-800'} font-bold px-2 py-0.5 rounded">${flight.launchType || '-'}</span>
+                                ${loggedUser ? `
+                                    <button onclick="openEditModal(${flight.id})" class="text-slate-400 hover:text-blue-600 p-1" title="Upravit let">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="openDeleteModal(${flight.id})" class="text-slate-400 hover:text-red-600 p-1" title="Smazat let">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <div class="text-sm font-semibold text-slate-700">
+                                <span>${flight.pilot || '-'}</span>
+                                ${flight.copilot && flight.copilot !== '-' ? `<span class="text-slate-500"> / ${flight.copilot}</span>` : ''}
+                            </div>
+                            ${flight.task && flight.task !== '-' ? `<div class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded inline-block">Úloha: ${flight.task}</div>` : ''}
+                            <div class="text-xs text-slate-500">
+                                Vzlet: <strong class="text-slate-800">${formatTime(flight.takeoffTime)}</strong>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
+                            ${flight.gliderLandingTime ? `
+                                <div class="text-right">
+                                    <span class="text-xs font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-lg block">Větroň přistál v ${formatTime(flight.gliderLandingTime)}</span>
+                                    <div class="text-xs font-mono font-bold text-slate-700 mt-1">Doba: ${flight.gliderDuration || '-'}</div>
+                                </div>
+                            ` : `
+                                <div class="text-right">
+                                    <div class="text-xs font-bold text-slate-400 uppercase">Doba letu větroně</div>
+                                    <div class="font-mono font-black text-xl text-blue-600 timer" data-start="${flight.takeoffTime}">
+                                        ${getDurationFormatted(flight.takeoffTime)}
+                                    </div>
+                                </div>
+                                ${loggedUser ? `
+                                    <button onclick="landGliderFlight(${flight.id})" class="btn-touch bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm px-4 py-3 rounded-xl shadow-md shadow-red-600/30 flex items-center space-x-1 transition active:bg-red-700">
+                                        <i data-lucide="plane-landing" class="w-5 h-5"></i>
+                                        <span>${isAero ? 'PŘISTÁNÍ VĚTRONĚ' : 'PŘISTÁNÍ'}</span>
+                                    </button>
+                                ` : ``}
+                            `}
+                        </div>
+                    </div>
+                    ${towHtml}
+                `;
+                activeFlightsContainer.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        function renderTodayCompletedFlights() {
+            todayTableBody.innerHTML = '';
+            const todayStr = getYYYYMMDD(new Date());
+            const todaysFlights = completedFlights.filter(f => getYYYYMMDD(f.takeoffTime) === todayStr);
+
+            if (todaysFlights.length === 0) {
+                noTodayCompletedEl.classList.remove('hidden');
+                return;
+            } else {
+                noTodayCompletedEl.classList.add('hidden');
+            }
+
+            todaysFlights.forEach(flight => {
+                const row = createFlightRow(flight);
+                todayTableBody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function createFlightRow(flight) {
+            const row = document.createElement('tr');
+            row.className = "hover:bg-slate-50 transition border-b border-slate-100 text-slate-800";
+            const isAero = flight.launchType === 'Aerovlek';
+
+            row.innerHTML = `
+                <td class="p-2.5">
+                    <div class="font-bold text-xs">${getRegistration(flight.aircraft)}</div>
+                    ${isAero ? `<div class="text-[11px] text-amber-800 font-semibold">Vlečná: ${getRegistration(flight.towAircraft)}</div>` : ''}
+                </td>
+                <td class="p-2.5">
+                    <div class="text-xs font-semibold">${flight.pilot || '-'}${flight.copilot && flight.copilot !== '-' ? ` / ${flight.copilot}` : ''}</div>
+                    ${isAero ? `<div class="text-[11px] text-amber-800 font-medium">Vlekař: ${flight.towPilot || '-'}</div>` : ''}
+                </td>
+                <td class="p-2.5 text-xs font-semibold text-blue-700">${flight.task || '-'}</td>
+                <td class="p-2.5 text-[11px] font-semibold text-slate-600">${flight.launchType || '-'}</td>
+                <td class="p-2.5 font-mono text-xs font-bold">${formatTime(flight.takeoffTime)}</td>
+                <td class="p-2.5 font-mono text-[11px]">
+                    ${isAero ? `<div>Vlečná: ${formatTime(flight.towLandingTime)}</div>` : ''}
+                    <div>Větroň: ${formatTime(flight.gliderLandingTime)}</div>
+                </td>
+                <td class="p-2.5 font-mono font-bold text-xs">
+                    ${isAero ? `<div class="text-amber-800">Vlečná: ${flight.towDuration || '-'}</div>` : ''}
+                    <div class="text-blue-600">Větroň: ${flight.gliderDuration || '-'}</div>
+                </td>
+                <td class="p-2.5 text-center">
+                    ${loggedUser ? `
+                        <div class="flex items-center justify-center space-x-1">
+                            <button onclick="openEditModal(${flight.id})" class="text-slate-400 hover:text-blue-600 p-1" title="Upravit let">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="openDeleteModal(${flight.id})" class="text-slate-400 hover:text-red-600 p-1" title="Smazat let">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    ` : `<span class="text-xs text-slate-300">-</span>`}
+                </td>
+            `;
+            return row;
+        }
+
+        function populateFilterAircraftOptions() {
+            const select = document.getElementById('filter-aircraft');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">Všechna letadla</option>';
+
+            const allAircrafts = new Set();
+            completedFlights.forEach(f => {
+                if (f.aircraft) allAircrafts.add(f.aircraft);
+                if (f.towAircraft) allAircrafts.add(f.towAircraft);
+            });
+
+            Array.from(allAircrafts).sort().forEach(ac => {
+                const opt = document.createElement('option');
+                opt.value = ac;
+                opt.textContent = ac;
+                select.appendChild(opt);
+            });
+            select.value = currentVal;
+        }
+
+        window.resetFilters = function() {
+            document.getElementById('filter-search').value = '';
+            document.getElementById('filter-aircraft').value = '';
+            document.getElementById('filter-launch').value = '';
+            document.getElementById('filter-date-from').value = '';
+            document.getElementById('filter-date-to').value = '';
+            applyHistoryFilters();
+        };
+
+        window.applyHistoryFilters = function() {
+            const search = document.getElementById('filter-search').value.toLowerCase().trim();
+            const aircraft = document.getElementById('filter-aircraft').value;
+            const launch = document.getElementById('filter-launch').value;
+            const dateFrom = document.getElementById('filter-date-from').value;
+            const dateTo = document.getElementById('filter-date-to').value;
+
+            const filtered = completedFlights.filter(flight => {
+                if (search) {
+                    const p = (flight.pilot || '').toLowerCase();
+                    const cp = (flight.copilot || '').toLowerCase();
+                    const tp = (flight.towPilot || '').toLowerCase();
+                    const t = (flight.task || '').toLowerCase();
+                    if (!p.includes(search) && !cp.includes(search) && !tp.includes(search) && !t.includes(search)) return false;
+                }
+                if (aircraft && flight.aircraft !== aircraft && flight.towAircraft !== aircraft) return false;
+                if (launch && flight.launchType !== launch) return false;
+
+                const flightDateStr = getYYYYMMDD(flight.takeoffTime);
+                if (dateFrom && flightDateStr < dateFrom) return false;
+                if (dateTo && flightDateStr > dateTo) return false;
+
+                return true;
+            });
+
+            renderHistoryDays(filtered);
+        };
+
+        function renderHistoryDays(flights) {
+            const container = document.getElementById('history-days-container');
+            const noMsg = document.getElementById('no-history-msg');
+            container.innerHTML = '';
+
+            if (flights.length === 0) {
+                noMsg.classList.remove('hidden');
+                return;
+            } else {
+                noMsg.classList.add('hidden');
+            }
+
+            const grouped = {};
+            flights.forEach(f => {
+                const dateKey = getYYYYMMDD(f.takeoffTime);
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(f);
+            });
+
+            const sortedDates = Object.keys(grouped).sort().reverse();
+
+            sortedDates.forEach(dateStr => {
+                const dayFlights = grouped[dateStr];
+                let totalGliderSecs = 0;
+                let totalTowSecs = 0;
+
+                dayFlights.forEach(f => {
+                    totalGliderSecs += getDurationInSeconds(f.takeoffTime, f.gliderLandingTime);
+                    if (f.towLandingTime) totalTowSecs += getDurationInSeconds(f.takeoffTime, f.towLandingTime);
+                });
+
+                const dayCard = document.createElement('section');
+                dayCard.className = "bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden";
+
+                dayCard.innerHTML = `
+                    <div class="bg-slate-900 text-white p-4 flex flex-wrap justify-between items-center gap-3">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="calendar" class="w-5 h-5 text-blue-400"></i>
+                            <h3 class="font-bold text-sm sm:text-base capitalize">${formatCzechDate(dateStr)}</h3>
+                            <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-bold">${dayFlights.length} letů</span>
+                        </div>
+                        <div class="flex items-center space-x-4 text-xs font-mono">
+                            <div class="text-blue-300">Větroně: <strong class="text-white">${formatSecondsToHHMMSS(totalGliderSecs)}</strong></div>
+                            ${totalTowSecs > 0 ? `<div class="text-amber-300">Vlečné: <strong class="text-white">${formatSecondsToHHMMSS(totalTowSecs)}</strong></div>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="p-4 overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="p-2.5">Letadlo / Vlečná</th>
+                                    <th class="p-2.5">Posádka / Vlekař</th>
+                                    <th class="p-2.5">Úloha</th>
+                                    <th class="p-2.5">Start</th>
+                                    <th class="p-2.5">Vzlet</th>
+                                    <th class="p-2.5">Přistání Vlečná / Větroň</th>
+                                    <th class="p-2.5">Doba letu</th>
+                                    <th class="p-2.5 text-center">Akce</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                ${dayFlights.map(f => {
+                                    const isAero = f.launchType === 'Aerovlek';
+                                    return `
+                                        <tr class="hover:bg-slate-50 transition border-b border-slate-100 text-slate-800">
+                                            <td class="p-2.5">
+                                                <div class="font-bold text-xs">${getRegistration(f.aircraft)}</div>
+                                                ${isAero ? `<div class="text-[11px] text-amber-800 font-semibold">Vlečná: ${getRegistration(f.towAircraft)}</div>` : ''}
+                                            </td>
+                                            <td class="p-2.5">
+                                                <div class="text-xs font-semibold">${f.pilot || '-'}${f.copilot && f.copilot !== '-' ? ` / ${f.copilot}` : ''}</div>
+                                                ${isAero ? `<div class="text-[11px] text-amber-800 font-medium">Vlekař: ${f.towPilot || '-'}</div>` : ''}
+                                            </td>
+                                            <td class="p-2.5 text-xs font-semibold text-blue-700">${f.task || '-'}</td>
+                                            <td class="p-2.5 text-[11px] font-semibold text-slate-600">${f.launchType || '-'}</td>
+                                            <td class="p-2.5 font-mono text-xs font-bold">${formatTime(f.takeoffTime)}</td>
+                                            <td class="p-2.5 font-mono text-[11px]">
+                                                ${isAero ? `<div>Vlečná: ${formatTime(f.towLandingTime)}</div>` : ''}
+                                                <div>Větroň: ${formatTime(f.gliderLandingTime)}</div>
+                                            </td>
+                                            <td class="p-2.5 font-mono font-bold text-xs">
+                                                ${isAero ? `<div class="text-amber-800">Vlečná: ${f.towDuration || '-'}</div>` : ''}
+                                                <div class="text-blue-600">Větroň: ${f.gliderDuration || '-'}</div>
+                                            </td>
+                                            <td class="p-2.5 text-center">
+                                                ${loggedUser ? `
+                                                    <div class="flex items-center justify-center space-x-1">
+                                                        <button onclick="openEditModal(${f.id})" class="text-slate-400 hover:text-blue-600 p-1" title="Upravit let">
+                                                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                                        </button>
+                                                        <button onclick="openDeleteModal(${f.id})" class="text-slate-400 hover:text-red-600 p-1" title="Smazat let">
+                                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                        </button>
+                                                    </div>
+                                                ` : `<span class="text-xs text-slate-300">-</span>`}
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                container.appendChild(dayCard);
+            });
+
+            lucide.createIcons();
+        }
+
+        window.openEditModal = function(id) {
+            if (!loggedUser) { openAuthModal(); return; }
+            let flight = activeFlights.find(f => f.id === id) || completedFlights.find(f => f.id === id);
+            if (!flight) return;
+
+            document.getElementById('edit-flight-id').value = flight.id;
+            document.getElementById('edit-task-name').value = flight.task && flight.task !== '-' ? flight.task : '';
+            document.getElementById('edit-takeoff-time').value = formatTimeInput(flight.takeoffTime);
+
+            const towContainer = document.getElementById('edit-tow-landing-container');
+            if (flight.launchType === 'Aerovlek') {
+                towContainer.classList.remove('hidden');
+                document.getElementById('edit-tow-landing-time').value = formatTimeInput(flight.towLandingTime);
+            } else {
+                towContainer.classList.add('hidden');
+            }
+
+            document.getElementById('edit-glider-landing-time').value = formatTimeInput(flight.gliderLandingTime);
+            editModal.classList.remove('hidden');
+        };
+
+        window.closeEditModal = function() {
+            editModal.classList.add('hidden');
+        };
+
+        editFlightForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!loggedUser) return;
+
+            const id = Number(document.getElementById('edit-flight-id').value);
+            let flight = activeFlights.find(f => f.id === id) || completedFlights.find(f => f.id === id);
+            if (!flight) return;
+
+            const taskStr = document.getElementById('edit-task-name').value.trim();
+            const takeoffStr = document.getElementById('edit-takeoff-time').value;
+            const towLandingStr = document.getElementById('edit-tow-landing-time').value;
+            const gliderLandingStr = document.getElementById('edit-glider-landing-time').value;
+
+            flight.task = taskStr || '-';
+            if (takeoffStr) flight.takeoffTime = createIsoFromTimeString(flight.takeoffTime, takeoffStr);
+
+            if (flight.launchType === 'Aerovlek') {
+                if (towLandingStr) {
+                    flight.towLandingTime = createIsoFromTimeString(flight.towLandingTime || flight.takeoffTime, towLandingStr);
+                } else {
+                    flight.towLandingTime = null;
+                    flight.towDuration = '-';
+                }
+            }
+
+            if (gliderLandingStr) {
+                flight.gliderLandingTime = createIsoFromTimeString(flight.gliderLandingTime || flight.takeoffTime, gliderLandingStr);
+            } else {
+                flight.gliderLandingTime = null;
+                flight.gliderDuration = '-';
+            }
+
+            recalculateDurations(flight);
+
+            activeFlights = activeFlights.filter(f => f.id !== id);
+            completedFlights = completedFlights.filter(f => f.id !== id);
+
+            const isAero = flight.launchType === 'Aerovlek';
+            const isFinished = isAero ? (Boolean(flight.towLandingTime) && Boolean(flight.gliderLandingTime)) : Boolean(flight.gliderLandingTime);
+
+            if (isFinished) {
+                completedFlights.unshift(flight);
+            } else {
+                activeFlights.unshift(flight);
+            }
+
+            saveData();
+            if (currentTab === 'today') renderTodayView();
+            else applyHistoryFilters();
+
+            closeEditModal();
+        });
+
+        setInterval(() => {
+            document.querySelectorAll('.timer').forEach(timerEl => {
+                const startTime = timerEl.getAttribute('data-start');
+                if (startTime) timerEl.textContent = getDurationFormatted(startTime);
+            });
+        }, 1000);
+
+        function generateCSV(flightList, filename) {
+            if (flightList.length === 0) { alert('Žádné lety k exportu.'); return; }
+            let csv = "\uFEFF";
+            csv += "Datum;Imatrikulace Vetron;Pilot Vetron;Druhy pilot;Uloha;Typ startu;Vzlet;Pristani Vetron;Doba letu Vetron;Imatrikulace Vlecne;Vlekar;Pristani Vlecne;Doba letu Vlecne\n";
+
+            flightList.forEach(f => {
+                const dStr = getYYYYMMDD(f.takeoffTime);
+                const row = [
+                    `"${dStr}"`, `"${getRegistration(f.aircraft)}"`, `"${f.pilot || '-'}"`, `"${f.copilot || '-'}"`,
+                    `"${f.task || '-'}"`, `"${f.launchType || '-'}"`, `"${formatTime(f.takeoffTime)}"`,
+                    `"${formatTime(f.gliderLandingTime)}"`, `"${f.gliderDuration || '-'}"`,
+                    `"${getRegistration(f.towAircraft) || '-'}"`, `"${f.towPilot || '-'}"`, `"${formatTime(f.towLandingTime)}"`,
+                    `"${f.towDuration || '-'}"`
+                ].join(";");
+                csv += row + "\n";
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.exportTodayCSV = function() {
+            const todayStr = getYYYYMMDD(new Date());
+            const todaysFlights = completedFlights.filter(f => getYYYYMMDD(f.takeoffTime) === todayStr);
+            generateCSV(todaysFlights, `startovka_dnesek_${todayStr}.csv`);
+        };
+
+        window.exportFilteredCSV = function() {
+            const search = document.getElementById('filter-search').value.toLowerCase().trim();
+            const aircraft = document.getElementById('filter-aircraft').value;
+            const launch = document.getElementById('filter-launch').value;
+            const dateFrom = document.getElementById('filter-date-from').value;
+            const dateTo = document.getElementById('filter-date-to').value;
+
+            const filtered = completedFlights.filter(flight => {
+                if (search) {
+                    const p = (flight.pilot || '').toLowerCase();
+                    const cp = (flight.copilot || '').toLowerCase();
+                    const tp = (flight.towPilot || '').toLowerCase();
+                    const t = (flight.task || '').toLowerCase();
+                    if (!p.includes(search) && !cp.includes(search) && !tp.includes(search) && !t.includes(search)) return false;
+                }
+                if (aircraft && flight.aircraft !== aircraft && flight.towAircraft !== aircraft) return false;
+                if (launch && flight.launchType !== launch) return false;
+                const flightDateStr = getYYYYMMDD(flight.takeoffTime);
+                if (dateFrom && flightDateStr < dateFrom) return false;
+                if (dateTo && flightDateStr > dateTo) return false;
+                return true;
+            });
+
+            generateCSV(filtered, `startovka_historie_export.csv`);
+        };
+
+        populateAircraftSelects();
+        updateUIForRole();
+    </script>
+</body>
+</html>
