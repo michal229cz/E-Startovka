@@ -1,0 +1,2654 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <!--v5.2.2-->
+    <meta name="robots" content="noindex">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Startovka - Multi-Airport Letištní Provoz</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase App, Auth & Realtime Database SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .btn-touch {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+            .btn-touch:active {
+                transform: scale(0.97);
+            }
+
+        .modal-backdrop {
+            background-color: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+    </style>
+</head>
+<body class="text-slate-900 min-h-screen flex flex-col pb-12">
+
+    <!-- Header / Navigační lišta -->
+    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-40 border-b-4 border-blue-500">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+
+            <!-- Logo & Název + Přepínač letiště -->
+            <div class="flex items-center space-x-3">
+                <div id="header-logo-container" class="p-2 bg-blue-600 rounded-xl shadow-md flex items-center justify-center overflow-hidden w-10 h-10 shrink-0">
+                    <i data-lucide="plane-takeoff" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-black tracking-wide uppercase flex items-center gap-2">
+                        E-Startovka
+                        <span class="text-[10px] normal-case bg-blue-900 text-blue-300 font-semibold px-2 py-0.5 rounded-full border border-blue-700">v5.2.2 Auth Fix</span>
+                    </h1>
+                    <div class="flex flex-wrap items-center gap-2 mt-0.5">
+                        <button onclick="openAirportSelector()" class="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 transition">
+                            <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+                            <span id="current-airport-label">Načítám letiště...</span>
+                            <span class="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700">(Změnit)</span>
+                        </button>
+                        <span class="text-slate-600">|</span>
+                        <a href="mailto:estartovka@gmail.com" class="text-xs text-slate-300 hover:text-white font-medium flex items-center gap-1 transition">
+                            <i data-lucide="mail" class="w-3.5 h-3.5 text-blue-400"></i>
+                            <span>estartovka@gmail.com</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Taby -->
+            <nav class="flex items-center space-x-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
+                <button id="tab-today-btn" onclick="switchTab('today')" class="btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow">
+                    <i data-lucide="activity" class="w-4 h-4"></i>
+                    <span>Dnešní provoz</span>
+                </button>
+                <button id="tab-history-btn" onclick="switchTab('history')" class="btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                    <span>Historie letů</span>
+                </button>
+                <button id="tab-logs-btn" onclick="switchTab('logs')" class="btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>Log akcí</span>
+                </button>
+            </nav>
+
+            <!-- Profil & Akce -->
+            <div class="flex items-center space-x-2">
+                <div id="user-role-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-slate-800 border-slate-700 text-slate-300">
+                    <i data-lucide="eye" class="w-4 h-4 text-amber-400"></i>
+                    <span id="user-role-text">Režim Čtení (Divák)</span>
+                </div>
+
+                <button id="open-superadmin-btn" onclick="openSuperAdminModal()" class="btn-touch hidden flex items-center space-x-1.5 bg-purple-900 hover:bg-purple-800 text-purple-200 text-xs font-bold px-3 py-2 rounded-xl border border-purple-700 transition">
+                    <i data-lucide="shield" class="w-4 h-4 text-purple-400"></i>
+                    <span class="hidden md:inline">SuperAdmin Panel</span>
+                </button>
+
+                <button id="open-fleet-modal-btn" onclick="openFleetModal()" class="btn-touch hidden flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-2 rounded-xl border border-slate-700 transition">
+                    <i data-lucide="settings" class="w-4 h-4 text-blue-400"></i>
+                    <span class="hidden md:inline">Správa letiště</span>
+                </button>
+
+                <button id="auth-action-btn" onclick="handleAuthButton()" class="btn-touch flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow">
+                    <i data-lucide="lock" class="w-4 h-4"></i>
+                    <span id="auth-btn-text">Přihlásit se</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Banner -->
+    <div id="viewer-warning-banner" class="bg-amber-500 text-slate-950 px-4 py-2 shadow-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center text-xs font-bold">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="shield-alert" class="w-4 h-4 shrink-0"></i>
+                <span id="viewer-banner-text">Jste v režimu Pouze pro čtení (Divák). Pro zápis přistání nebo startů se přihlaste s rolí Startér / Pilot.</span>
+            </div>
+            <button onclick="openAuthModal()" class="underline hover:text-white font-black ml-2">Přihlásit se</button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="max-w-7xl mx-auto w-full p-3 sm:p-6 flex-grow">
+
+        <!-- TAB 1: DNEŠNÍ PROVOZ -->
+        <div id="tab-today-content" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Formulář pro nový start -->
+            <section class="lg:col-span-5 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between relative h-fit space-y-4">
+
+                <div id="form-disabled-overlay" class="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] rounded-2xl z-10 flex flex-col items-center justify-center p-6 text-center">
+                    <div class="bg-white/95 p-5 rounded-2xl shadow-xl border border-slate-200 max-w-xs">
+                        <i data-lucide="lock" class="w-10 h-10 text-slate-400 mx-auto mb-2"></i>
+                        <h3 class="font-bold text-slate-800 text-sm uppercase mb-1">Formulář uzamčen</h3>
+                        <p id="form-disabled-text" class="text-xs text-slate-500 mb-4">Pro zapisování letů na tomto letišti se přihlaste s rolí Startér / Pilot nebo Admin tohoto letiště.</p>
+                        <button onclick="openAuthModal()" class="btn-touch w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow transition">
+                            Přihlásit se
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="plus-circle" class="w-6 h-6 text-blue-600"></i>
+                            <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Zadat Nový Start</h2>
+                        </div>
+                    </div>
+
+                    <form id="start-form" class="space-y-4" autocomplete="off">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-bold text-slate-700 uppercase">Větroň / Letadlo</label>
+                                <button type="button" onclick="openFleetModal()" class="text-[11px] text-blue-600 hover:underline font-bold">+ Správa flotily</button>
+                            </div>
+                            <select id="aircraft-select" class="w-full bg-slate-50 border-2 border-slate-300 text-slate-900 font-bold text-base rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Pilot / Žák</label>
+                                <input type="text" id="pilot-name" list="pilots-list" placeholder="Začněte psát jméno..." required autocomplete="off" class="w-full bg-slate-50 border-2 border-slate-300 text-slate-900 font-semibold text-sm rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Instruktor / 2. pilot</label>
+                                <input type="text" id="copilot-name" list="pilots-list" placeholder="Nepovinné" autocomplete="off" class="w-full bg-slate-50 border-2 border-slate-300 text-slate-900 font-semibold text-sm rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+
+                        <datalist id="pilots-list"></datalist>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Úloha / Cíl letu</label>
+                            <input type="text" id="task-name" placeholder="např. Úloha 3, Navigace, Termika" autocomplete="off" class="w-full bg-slate-50 border-2 border-slate-300 text-slate-900 font-semibold text-sm rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Typ startu</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="launch-type" value="Naviják" checked class="peer sr-only">
+                                    <div class="p-3 text-center rounded-xl border-2 border-slate-300 font-bold text-xs text-slate-700 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 transition">
+                                        Naviják
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="launch-type" value="Aerovlek" class="peer sr-only">
+                                    <div class="p-3 text-center rounded-xl border-2 border-slate-300 font-bold text-xs text-slate-700 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 transition">
+                                        Aerovlek
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="launch-type" value="Vlastní motor" class="peer sr-only">
+                                    <div class="p-3 text-center rounded-xl border-2 border-slate-300 font-bold text-xs text-slate-700 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700 transition">
+                                        Vlastní
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="tow-details-section" class="hidden bg-amber-50 p-4 rounded-xl border-2 border-amber-300 space-y-3">
+                            <div class="flex items-center space-x-2 text-amber-900 font-bold text-xs uppercase">
+                                <i data-lucide="plane" class="w-4 h-4 text-amber-600"></i>
+                                <span>Údaje o Vlečném Letadle a Vlekaři</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Vlečné letadlo</label>
+                                    <select id="tow-aircraft-select" class="w-full bg-white border-2 border-amber-300 text-slate-900 font-semibold text-xs rounded-xl p-2.5 outline-none">
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Vlekař (Pilot vlečné)</label>
+                                    <select id="tow-pilot-select" class="w-full bg-white border-2 border-amber-300 text-slate-900 font-semibold text-xs rounded-xl p-2.5 outline-none">
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="submit-start-btn" class="btn-touch w-full bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-black py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition active:bg-emerald-700">
+                            <i data-lucide="plane-takeoff" class="w-6 h-6"></i>
+                            <span>ODSTARTOVAT</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Podpora, nápady a zájem o systém -->
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-xs space-y-2 mt-4">
+                    <div class="font-bold text-blue-900 flex items-center gap-1.5 uppercase">
+                        <i data-lucide="lightbulb" class="w-4 h-4 text-blue-600"></i>
+                        <span>Nápady, vylepšení & Zájem o systém</span>
+                    </div>
+                    <p class="text-slate-600">Chcete E-Startovku nasadit na svém letišti, máte nápady na nové funkce nebo zpětnou vazbu? Napište nám:</p>
+                    <a href="mailto:estartovka@gmail.com" class="inline-flex items-center space-x-1.5 font-bold text-blue-700 hover:text-blue-900 bg-white border border-blue-300 px-3 py-1.5 rounded-lg shadow-sm transition">
+                        <i data-lucide="mail" class="w-4 h-4"></i>
+                        <span>estartovka@gmail.com</span>
+                    </a>
+                </div>
+
+            </section>
+
+            <!-- Probíhající lety & Denník -->
+            <div class="lg:col-span-7 space-y-6">
+
+                <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="radio" class="w-6 h-6 text-emerald-600 animate-pulse"></i>
+                            <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Probíhající lety</h2>
+                        </div>
+                        <span id="active-count" class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-300">0 ve vzduchu</span>
+                    </div>
+
+                    <div id="active-flights-list" class="space-y-4">
+                        <div id="no-active-flights" class="text-center py-8 text-slate-400 font-medium border-2 border-dashed border-slate-200 rounded-xl">
+                            Aktuálně není na tomto letišti ve vzduchu žádné letadlo.
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-3 mb-4 gap-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="sun" class="w-6 h-6 text-amber-500"></i>
+                            <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Dnešní deník letů (UTC)</h2>
+                        </div>
+
+                        <button onclick="exportTodayCSV()" class="btn-touch inline-flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-2 px-3.5 rounded-xl transition shadow-sm">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Exportovat Dnešek (CSV)</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 text-slate-600 uppercase font-bold">
+                                <tr>
+                                    <th class="p-2.5 rounded-l-lg">Letadlo / Vlečná</th>
+                                    <th class="p-2.5">Posádka / Vlekař</th>
+                                    <th class="p-2.5">Úloha / Zapsal</th>
+                                    <th class="p-2.5">Start</th>
+                                    <th class="p-2.5">Vzlet</th>
+                                    <th class="p-2.5">Přistání Vlečná / Větroň</th>
+                                    <th class="p-2.5">Doba letu</th>
+                                    <th class="p-2.5 text-center rounded-r-lg">Akce</th>
+                                </tr>
+                            </thead>
+                            <tbody id="today-completed-flights-table" class="divide-y divide-slate-100">
+                            </tbody>
+                        </table>
+                        <div id="no-today-completed-flights" class="text-center py-6 text-slate-400 text-xs font-medium">
+                            Dnes na tomto letišti zatím nebyly dokončeny žádné lety.
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+
+        <!-- TAB 2: HISTORIE -->
+        <div id="tab-history-content" class="hidden space-y-6">
+            <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 pb-3 mb-4 gap-3">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="filter" class="w-5 h-5 text-blue-600"></i>
+                        <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Filtrování a Vyhledávání v Historii Letiště</h2>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="resetFilters()" class="btn-touch text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl border border-slate-300 transition">
+                            Resetovat filtry
+                        </button>
+                        <button onclick="exportFilteredCSV()" class="btn-touch flex items-center space-x-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-xl transition shadow">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Exportovat Filtrované (CSV)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Jméno / Úloha / Osoba</label>
+                        <div class="relative">
+                            <input type="text" id="filter-search" placeholder="Hledat jméno, úlohu..." oninput="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs font-semibold rounded-xl p-2.5 pl-8 outline-none focus:ring-2 focus:ring-blue-500">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-2.5 top-3"></i>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Imatrikulace letadla</label>
+                        <select id="filter-aircraft" onchange="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs font-semibold rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Všechna letadla</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Typ startu</label>
+                        <select id="filter-launch" onchange="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs font-semibold rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Všechny typy</option>
+                            <option value="Naviják">Naviják</option>
+                            <option value="Aerovlek">Aerovlek</option>
+                            <option value="Vlastní motor">Vlastní motor</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Datum (Od - Do)</label>
+                        <div class="flex items-center space-x-1">
+                            <input type="date" id="filter-date-from" onchange="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-[11px] font-semibold rounded-xl p-2 outline-none">
+                            <span class="text-slate-400 font-bold">-</span>
+                            <input type="date" id="filter-date-to" onchange="applyHistoryFilters()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-[11px] font-semibold rounded-xl p-2 outline-none">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div id="history-days-container" class="space-y-6"></div>
+
+            <div id="no-history-msg" class="hidden text-center py-12 bg-white rounded-2xl border border-slate-200">
+                <i data-lucide="folder-open" class="w-12 h-12 text-slate-300 mx-auto mb-2"></i>
+                <p class="text-sm text-slate-500 font-semibold">Pro zvolené filtry nebyly nalezeny žádné lety.</p>
+            </div>
+        </div>
+
+        <!-- TAB 3: LOG AKCÍ -->
+        <div id="tab-logs-content" class="hidden space-y-6">
+            <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 pb-3 gap-3">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="file-text" class="w-6 h-6 text-blue-600"></i>
+                        <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Auditní Log Akcí na Letišti</h2>
+                    </div>
+                    <button onclick="resetLogFilters()" class="btn-touch text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl border border-slate-300 transition">
+                        Resetovat filtry logu
+                    </button>
+                </div>
+
+                <!-- Filtry pro logy -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Hledat v textu / uživateli</label>
+                        <div class="relative">
+                            <input type="text" id="filter-log-search" placeholder="Hledat uživatele, letadlo..." oninput="applyLogFilters()" class="w-full bg-white border border-slate-300 text-slate-900 text-xs font-semibold rounded-xl p-2.5 pl-8 outline-none focus:ring-2 focus:ring-blue-500">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-2.5 top-3"></i>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Typ akce</label>
+                        <select id="filter-log-type" onchange="applyLogFilters()" class="w-full bg-white border border-slate-300 text-slate-900 text-xs font-semibold rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Všechny typy akcí</option>
+                            <option value="Odstartování">Odstartování</option>
+                            <option value="Ukončení letu">Ukončení letu</option>
+                            <option value="Přistání">Přistání / Přistání vlečné</option>
+                            <option value="Úprava letu">Úprava letu</option>
+                            <option value="Smazání">Smazání letu / položky</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Datum (Od - Do)</label>
+                        <div class="flex items-center space-x-1">
+                            <input type="date" id="filter-log-date-from" onchange="applyLogFilters()" class="w-full bg-white border border-slate-300 text-slate-900 text-[11px] font-semibold rounded-xl p-2 outline-none">
+                            <span class="text-slate-400 font-bold">-</span>
+                            <input type="date" id="filter-log-date-to" onchange="applyLogFilters()" class="w-full bg-white border border-slate-300 text-slate-900 text-[11px] font-semibold rounded-xl p-2 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-100 text-slate-600 uppercase font-bold">
+                            <tr>
+                                <th class="p-2.5 rounded-l-lg">Čas (UTC)</th>
+                                <th class="p-2.5">Uživatel</th>
+                                <th class="p-2.5">Typ akce</th>
+                                <th class="p-2.5 rounded-r-lg">Podrobnosti a časy</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-table-body" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                    <div id="no-logs-msg" class="hidden text-center py-8 text-slate-400 text-xs font-medium">
+                        Pro zvolené filtry nebyly nalezeny žádné záznamy v logu.
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- MODAL PRO VÝBĚR LETIŠTĚ -->
+    <div id="airport-selector-modal" class="fixed inset-0 bg-blue-600 z-50 flex items-center justify-center p-4">
+        <div class="max-w-md w-full p-6 text-white flex flex-col items-center">
+            <div class="p-3.5 bg-blue-500 rounded-2xl shadow-xl mb-4 border border-blue-400">
+                <i data-lucide="plane-takeoff" class="w-10 h-10 text-white"></i>
+            </div>
+            <h3 class="text-2xl font-black uppercase tracking-wider mb-1 text-center">E-Startovka</h3>
+            <p class="text-xs text-blue-100 mb-6 text-center font-medium">Vyberte letiště pro zobrazení provozu:</p>
+
+            <div id="airports-grid" class="w-full space-y-3 max-h-[50vh] overflow-y-auto pr-1 mb-6">
+            </div>
+
+            <!-- Podpora v modalu -->
+            <div class="w-full bg-blue-700/80 border border-blue-500/50 p-3.5 rounded-xl text-center text-xs space-y-1.5">
+                <div class="font-bold text-blue-100">Zájem o systém / Nápady na vylepšení?</div>
+                <a href="mailto:estartovka@gmail.com" class="inline-flex items-center space-x-1.5 text-amber-300 hover:text-amber-200 font-bold underline">
+                    <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+                    <span>estartovka@gmail.com</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AUTH -->
+    <div id="auth-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="shield-check" class="w-6 h-6 text-blue-600"></i>
+                    <h3 id="auth-modal-title" class="text-base font-bold uppercase tracking-wide">Přihlášení uživatele</h3>
+                </div>
+                <button onclick="closeAuthModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <form id="auth-form" class="space-y-4" autocomplete="off">
+                <div id="auth-name-container" class="hidden">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Celé jméno (příp. přezdívka)</label>
+                    <input type="text" id="auth-fullname" placeholder="Jan Novák" class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">E-mailová adresa</label>
+                    <input type="email" id="auth-email" placeholder="vas@email.cz" required class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div id="auth-password-group">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Heslo</label>
+                    <input type="password" id="auth-password" placeholder="••••••••" required class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="text-right mt-1">
+                        <button type="button" onclick="togglePasswordResetMode()" class="text-xs text-blue-600 hover:underline font-bold">Zapomněli jste heslo?</button>
+                    </div>
+                </div>
+
+                <div id="auth-airport-select-container" class="hidden">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Domovské letiště (Klub)</label>
+                    <select id="auth-home-airport" class="w-full bg-slate-50 border border-slate-300 font-semibold text-xs rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                    </select>
+                </div>
+
+                <div id="resend-container" class="hidden pt-1">
+                    <button type="button" id="resend-btn" onclick="resendVerificationOrResetEmail()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition border border-slate-300">
+                        Znovu odeslat e-mail
+                    </button>
+                </div>
+
+                <div id="auth-error-msg" class="hidden text-xs text-red-600 font-bold bg-red-50 border border-red-200 p-2.5 rounded-xl"></div>
+                <div id="auth-success-msg" class="hidden text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl"></div>
+
+                <div class="space-y-2 pt-2">
+                    <button type="submit" id="auth-submit-btn" class="btn-touch w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm py-3 px-4 rounded-xl shadow transition">
+                        Přihlásit se
+                    </button>
+                    <button type="button" id="auth-toggle-mode-btn" onclick="toggleAuthMode()" class="w-full text-center text-xs text-blue-600 hover:underline font-bold py-1">
+                        <span id="auth-toggle-text">Nemáte účet? Zaregistrujte se</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SUPERADMIN -->
+    <div id="superadmin-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="shield" class="w-6 h-6 text-purple-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide">SuperAdmin Ovládací Panel</h3>
+                </div>
+                <button onclick="closeSuperAdminModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto space-y-6 flex-grow pr-1">
+                <!-- Založení letiště -->
+                <form id="create-airport-form" class="bg-purple-50 p-4 rounded-xl border border-purple-200 space-y-3" autocomplete="off">
+                    <h4 class="text-xs font-bold uppercase text-purple-900 flex items-center gap-1">
+                        <i data-lucide="plus-circle" class="w-4 h-4 text-purple-600"></i>
+                        <span>Založit nové letiště v systému</span>
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-purple-800 uppercase mb-1">ICAO Kód (např. LKST)</label>
+                            <input type="text" id="new-airport-icao" placeholder="LKST" maxlength="4" required class="w-full bg-white border border-purple-300 uppercase font-mono font-bold text-xs rounded-lg p-2 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-purple-800 uppercase mb-1">Název letiště / Aeroklubu</label>
+                            <input type="text" id="new-airport-name" placeholder="AK Strakonice" required class="w-full bg-white border border-purple-300 font-semibold text-xs rounded-lg p-2 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-purple-800 uppercase mb-1">URL Logo obrázku (nepovinné)</label>
+                            <input type="url" id="new-airport-logo" placeholder="https://example.com/logo.png" class="w-full bg-white border border-purple-300 font-semibold text-xs rounded-lg p-2 outline-none">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs py-2 px-4 rounded-lg transition shadow">
+                        + Vytvořit Letiště
+                    </button>
+                </form>
+
+                <!-- Správa pořadí, log a mazání letišť -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <h4 class="text-xs font-bold uppercase text-slate-800 flex items-center space-x-1">
+                        <i data-lucide="map" class="w-4 h-4 text-purple-600"></i>
+                        <span>Správa letišť, log & Pořadí v menu</span>
+                    </h4>
+                    <div id="superadmin-airports-list" class="space-y-2">
+                    </div>
+                </div>
+
+                <!-- Správa uživatelů -->
+                <div>
+                    <h4 class="text-xs font-bold uppercase text-slate-800 mb-2 flex items-center space-x-1">
+                        <i data-lucide="users" class="w-4 h-4 text-purple-600"></i>
+                        <span>Všichni uživatelé v databázi & Oprávnění</span>
+                    </h4>
+                    <div id="superadmin-users-list" class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200 max-h-60 overflow-y-auto">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-200 text-right">
+                <button onclick="closeSuperAdminModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-4 py-2 rounded-xl transition">
+                    Zavřít
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DELETE AIRPORT -->
+    <div id="delete-airport-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide text-red-600">Smazat letiště</h3>
+                </div>
+                <button onclick="closeDeleteAirportModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-600 mb-3">Opravdu chcete toto letiště i s jeho daty a historií trvale smazat? Pro potvrzení opište číslo:</p>
+            <div id="delete-airport-random-code" class="bg-slate-100 border border-slate-300 text-center font-mono font-black text-2xl tracking-widest text-slate-800 p-3 rounded-xl mb-3 select-none">
+                1234
+            </div>
+            <input type="text" id="delete-airport-confirm-input" placeholder="Opište číslo..." autocomplete="off" class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-3 mb-2 outline-none focus:ring-2 focus:ring-red-500">
+            <div id="delete-airport-error-msg" class="hidden text-xs text-red-600 font-bold mb-3">Nesprávné číslo! Zkuste to znovu.</div>
+            <div class="flex space-x-2 pt-2">
+                <button type="button" onclick="closeDeleteAirportModal()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold py-2.5 rounded-xl transition">
+                    Zrušit
+                </button>
+                <button type="button" onclick="executeDeleteAirport()" class="w-1/2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2.5 rounded-xl transition shadow">
+                    Smazat letiště
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FLOTILA & ČLENOVÉ -->
+    <div id="fleet-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="settings" class="w-6 h-6 text-blue-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide">Správa Flotily & Členů (<span id="modal-airport-title">-</span>)</h3>
+                </div>
+                <button onclick="closeFleetModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto space-y-6 flex-grow pr-1">
+                <form id="add-aircraft-form" class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3" autocomplete="off">
+                    <h4 class="text-xs font-bold uppercase text-slate-700">Přidat položku do nabídek letiště</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Kategorie</label>
+                            <select id="modal-aircraft-category" class="w-full bg-white border border-slate-300 text-xs font-semibold rounded-lg p-2 outline-none">
+                                <option value="gliders">Větroň / Letadlo</option>
+                                <option value="tows">Vlečné letadlo</option>
+                                <option value="towPilots">Vlekař (Pilot vlečné)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Název / Imatrikulace / Jméno</label>
+                            <input type="text" id="modal-aircraft-name" placeholder="např. OK-DUO 79 nebo Jan Novák" required autocomplete="off" class="w-full bg-white border border-slate-300 text-xs font-semibold rounded-lg p-2 outline-none">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2 px-4 rounded-lg transition flex justify-center items-center space-x-1">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Uložit pro toto letiště</span>
+                    </button>
+                </form>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <h4 class="text-xs font-bold uppercase text-slate-500 mb-2">Větroně letiště:</h4>
+                        <div id="modal-gliders-list" class="space-y-1.5"></div>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-bold uppercase text-slate-500 mb-2">Vlečné letiště:</h4>
+                        <div id="modal-tows-list" class="space-y-1.5"></div>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-bold uppercase text-slate-500 mb-2">Vlekaři letiště:</h4>
+                        <div id="modal-tow-pilots-list" class="space-y-1.5"></div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-xs font-bold uppercase text-slate-800 mb-2 flex items-center space-x-1">
+                        <i data-lucide="users" class="w-4 h-4 text-blue-600"></i>
+                        <span>Členové tohoto letiště & Nastavení rolí</span>
+                    </h4>
+                    <div id="admin-users-list" class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200 max-h-48 overflow-y-auto">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-200 text-right">
+                <button onclick="closeFleetModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-4 py-2 rounded-xl transition">
+                    Zavřít
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT -->
+    <div id="edit-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-blue-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide">Zpětná úprava letu</h3>
+                </div>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <form id="edit-flight-form" class="space-y-4" autocomplete="off">
+                <input type="hidden" id="edit-flight-id">
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Úloha / Cíl letu</label>
+                    <input type="text" id="edit-task-name" placeholder="Nepovinné" class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Čas Vzletu</label>
+                    <input type="time" step="1" id="edit-takeoff-time" required class="w-full bg-slate-50 border border-slate-300 font-mono font-bold text-base rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div id="edit-tow-landing-container" class="hidden">
+                    <label class="block text-xs font-bold text-amber-900 uppercase mb-1">Přistání Vlečné</label>
+                    <input type="time" step="1" id="edit-tow-landing-time" class="w-full bg-amber-50 border border-amber-300 font-mono font-bold text-base rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+
+                <div id="edit-glider-landing-container">
+                    <label class="block text-xs font-bold text-blue-900 uppercase mb-1">Přistání Větroně</label>
+                    <input type="time" step="1" id="edit-glider-landing-time" class="w-full bg-blue-50 border border-blue-300 font-mono font-bold text-base rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-200">
+                    <button type="button" onclick="closeEditModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-4 py-2.5 rounded-xl transition">
+                        Zrušit
+                    </button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
+                        Uložit změny
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DELETE -->
+    <div id="delete-modal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
+                <div class="flex items-center space-x-2 text-slate-900">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    <h3 class="text-base font-bold uppercase tracking-wide text-red-600">Smazat let</h3>
+                </div>
+                <button onclick="closeDeleteModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-600 mb-3">Opravdu chcete tento let trvale smazat? Pro potvrzení opište číslo:</p>
+            <div id="delete-random-number-display" class="bg-slate-100 border border-slate-300 text-center font-mono font-black text-2xl tracking-widest text-slate-800 p-3 rounded-xl mb-3 select-none">
+                1234
+            </div>
+            <input type="text" id="delete-confirm-input" placeholder="Opište číslo..." autocomplete="off" class="w-full bg-slate-50 border border-slate-300 font-semibold text-sm rounded-xl p-3 mb-2 outline-none focus:ring-2 focus:ring-red-500">
+            <div id="delete-error-msg" class="hidden text-xs text-red-600 font-bold mb-3">Nesprávné číslo! Zkuste to znovu.</div>
+            <div class="flex space-x-2 pt-2">
+                <button type="button" onclick="closeDeleteModal()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold py-2.5 rounded-xl transition">
+                    Zrušit
+                </button>
+                <button type="button" onclick="executeDeleteFlight()" class="w-1/2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2.5 rounded-xl transition shadow">
+                    Smazat let
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APLIKACE -->
+    <script>
+        // ==========================================
+        // 1. FIREBASE CONFIG & INITIALIZATION
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCAJhMyd00MBTxfqaXMShiWX4hy-kSkuW4",
+            authDomain: "e-startovka-s-email.firebaseapp.com",
+            databaseURL: "https://e-startovka-s-email-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "e-startovka-s-email",
+            storageBucket: "e-startovka-s-email.firebasestorage.app",
+            messagingSenderId: "154026986656",
+            appId: "1:154026986656:web:5e6a8bf919fa5f902acdc5",
+            measurementId: "G-Y8GG5WSKR0"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+
+        const defaultGliders = ["OK-4704 (L-13 Blaník)", "OK-5602 (VSO-10)"];
+        const defaultTows = ["OK-DUO 79 (Airlony Skyline)"];
+        const defaultTowPilots = ["Petr Novák"];
+
+        let airportsList = {};
+        let currentAirportId = localStorage.getItem('startovka_selected_airport') || null;
+
+        let activeFlights = [];
+        let completedFlights = [];
+        let auditLogs = [];
+        let customGliders = [];
+        let customTows = [];
+        let customTowPilots = [];
+        let allUsersMap = {};
+
+        let currentUser = null;
+        let currentUserData = null;
+
+        let currentTab = 'today';
+        let flightToDeleteId = null;
+        let airportToDeleteId = null;
+        let currentRandomCode = "";
+        let currentAirportRandomCode = "";
+        let isRegisterMode = false;
+        let isPasswordResetMode = false;
+
+        let lastResendTimestamp = 0;
+        let resendIntervalTimer = null;
+
+        let lastTowPilot = localStorage.getItem('startovka_last_tow_pilot') || '';
+
+        const aircraftSelect = document.getElementById('aircraft-select');
+        const towAircraftSelect = document.getElementById('tow-aircraft-select');
+        const towPilotSelect = document.getElementById('tow-pilot-select');
+        const startForm = document.getElementById('start-form');
+        const activeFlightsContainer = document.getElementById('active-flights-list');
+        const noActiveFlightsEl = document.getElementById('no-active-flights');
+        const todayTableBody = document.getElementById('today-completed-flights-table');
+        const noTodayCompletedEl = document.getElementById('no-today-completed-flights');
+        const activeCountBadge = document.getElementById('active-count');
+        const towDetailsSection = document.getElementById('tow-details-section');
+        const launchTypeRadios = document.querySelectorAll('input[name="launch-type"]');
+
+        const fleetModal = document.getElementById('fleet-modal');
+        const addAircraftForm = document.getElementById('add-aircraft-form');
+        const modalGlidersList = document.getElementById('modal-gliders-list');
+        const modalTowsList = document.getElementById('modal-tows-list');
+        const modalTowPilotsList = document.getElementById('modal-tow-pilots-list');
+        const adminUsersList = document.getElementById('admin-users-list');
+
+        const superAdminModal = document.getElementById('superadmin-modal');
+        const createAirportForm = document.getElementById('create-airport-form');
+        const superadminUsersList = document.getElementById('superadmin-users-list');
+        const superadminAirportsList = document.getElementById('superadmin-airports-list');
+        const deleteAirportModal = document.getElementById('delete-airport-modal');
+
+        const editModal = document.getElementById('edit-modal');
+        const editFlightForm = document.getElementById('edit-flight-form');
+
+        const authModal = document.getElementById('auth-modal');
+        const authForm = document.getElementById('auth-form');
+        const authActionBtnText = document.getElementById('auth-btn-text');
+        const userRoleBadge = document.getElementById('user-role-badge');
+        const viewerWarningBanner = document.getElementById('viewer-warning-banner');
+        const viewerBannerText = document.getElementById('viewer-banner-text');
+        const formDisabledOverlay = document.getElementById('form-disabled-overlay');
+        const formDisabledText = document.getElementById('form-disabled-text');
+        const authErrorMsg = document.getElementById('auth-error-msg');
+        const authSuccessMsg = document.getElementById('auth-success-msg');
+        const resendContainer = document.getElementById('resend-container');
+        const resendBtn = document.getElementById('resend-btn');
+
+        const openFleetModalBtn = document.getElementById('open-fleet-modal-btn');
+        const openSuperadminBtn = document.getElementById('open-superadmin-btn');
+        const airportSelectorModal = document.getElementById('airport-selector-modal');
+
+        // ==========================================
+        // 2. KONTROLA A POSLECH LETIŠŤ V DB
+        // ==========================================
+        database.ref('airports').on('value', (snapshot) => {
+            const val = snapshot.val();
+            if (val) {
+                airportsList = val;
+            } else {
+                airportsList = {
+                    lkst: { name: "AK Strakonice", icao: "LKST", order: 0, logoUrl: "" }
+                };
+                database.ref('airports').set(airportsList);
+            }
+
+            renderAirportGrid();
+            populateAuthAirportSelect();
+            if (!superAdminModal.classList.contains('hidden')) {
+                renderSuperadminAirportsList();
+            }
+
+            if (!currentAirportId || !airportsList[currentAirportId]) {
+                openAirportSelector();
+            } else {
+                selectAirport(currentAirportId, false);
+            }
+        });
+
+        function updateCurrentAirportLabel() {
+            const label = document.getElementById('current-airport-label');
+            const logoContainer = document.getElementById('header-logo-container');
+
+            if (currentAirportId && airportsList[currentAirportId]) {
+                const ap = airportsList[currentAirportId];
+                label.textContent = `${ap.name} (${ap.icao})`;
+
+                if (ap.logoUrl && ap.logoUrl.trim() !== '') {
+                    logoContainer.innerHTML = `<img src="${ap.logoUrl}" alt="Logo" class="w-full h-full object-contain">`;
+                    logoContainer.className = "p-1 bg-white rounded-xl shadow-md flex items-center justify-center overflow-hidden w-10 h-10 shrink-0 border border-blue-400";
+                } else {
+                    logoContainer.innerHTML = `<i data-lucide="plane-takeoff" class="w-6 h-6 text-white"></i>`;
+                    logoContainer.className = "p-2 bg-blue-600 rounded-xl shadow-md flex items-center justify-center overflow-hidden w-10 h-10 shrink-0";
+                }
+            } else {
+                label.textContent = "Vyberte letiště";
+                logoContainer.innerHTML = `<i data-lucide="plane-takeoff" class="w-6 h-6 text-white"></i>`;
+                logoContainer.className = "p-2 bg-blue-600 rounded-xl shadow-md flex items-center justify-center overflow-hidden w-10 h-10 shrink-0";
+            }
+            lucide.createIcons();
+        }
+
+        window.openAirportSelector = function() {
+            renderAirportGrid();
+            airportSelectorModal.classList.remove('hidden');
+        };
+
+        window.closeAirportSelector = function() {
+            if (!currentAirportId) return;
+            airportSelectorModal.classList.add('hidden');
+        };
+
+        function getSortedAirportsArray() {
+            return Object.keys(airportsList)
+                .map(id => ({ id, ...airportsList[id] }))
+                .sort((a, b) => {
+                    const orderA = a.order !== undefined ? Number(a.order) : 0;
+                    const orderB = b.order !== undefined ? Number(b.order) : 0;
+                    if (orderA !== orderB) return orderA - orderB;
+                    return a.id.localeCompare(b.id);
+                });
+        }
+
+        function renderAirportGrid() {
+            const grid = document.getElementById('airports-grid');
+            grid.innerHTML = '';
+
+            const sorted = getSortedAirportsArray();
+            sorted.forEach(ap => {
+                const card = document.createElement('button');
+                card.type = "button";
+                card.className = "btn-touch w-full bg-white hover:bg-blue-50 text-slate-900 p-4 rounded-2xl shadow-xl border-2 border-transparent hover:border-blue-300 transition flex items-center justify-between text-left group";
+                card.onclick = () => selectAirport(ap.id, true);
+
+                let logoHtml = `
+                    <div class="p-3 bg-blue-100 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition shrink-0 flex items-center justify-center w-12 h-12">
+                        <i data-lucide="plane" class="w-6 h-6"></i>
+                    </div>
+                `;
+                if (ap.logoUrl && ap.logoUrl.trim() !== '') {
+                    logoHtml = `
+                        <div class="p-1 bg-white rounded-xl border border-slate-200 shrink-0 flex items-center justify-center w-12 h-12 overflow-hidden shadow-sm">
+                            <img src="${ap.logoUrl}" alt="Logo" class="w-full h-full object-contain">
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-4">
+                        ${logoHtml}
+                        <div>
+                            <div class="font-black text-lg text-slate-900 tracking-wide">${ap.icao}</div>
+                            <div class="text-xs font-semibold text-slate-600">${ap.name}</div>
+                        </div>
+                    </div>
+                    <div class="p-2 bg-slate-100 rounded-xl text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function selectAirport(id, closeModal = true) {
+            currentAirportId = id;
+            localStorage.setItem('startovka_selected_airport', id);
+            updateCurrentAirportLabel();
+            if (closeModal) closeAirportSelector();
+
+            attachAirportListeners(id);
+            updatePilotsDatalist();
+            updateUIForPermissions();
+        }
+
+        function attachAirportListeners(id) {
+            database.ref(`airportData/${id}/activeFlights`).off();
+            database.ref(`airportData/${id}/completedFlights`).off();
+            database.ref(`airportData/${id}/auditLogs`).off();
+            database.ref(`airportData/${id}/customGliders`).off();
+            database.ref(`airportData/${id}/customTows`).off();
+            database.ref(`airportData/${id}/customTowPilots`).off();
+
+            database.ref(`airportData/${id}/activeFlights`).on('value', (snapshot) => {
+                const val = snapshot.val();
+                activeFlights = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+                if (currentTab === 'today') renderTodayView();
+            });
+
+            database.ref(`airportData/${id}/completedFlights`).on('value', (snapshot) => {
+                const val = snapshot.val();
+                completedFlights = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+                if (currentTab === 'today') renderTodayCompletedFlights();
+                else if (currentTab === 'history') applyHistoryFilters();
+            });
+
+            database.ref(`airportData/${id}/auditLogs`).on('value', (snapshot) => {
+                const val = snapshot.val();
+                auditLogs = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+                if (currentTab === 'logs') applyLogFilters();
+            });
+
+            database.ref(`airportData/${id}/customGliders`).on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val === null) {
+                    customGliders = [...defaultGliders];
+                    database.ref(`airportData/${id}/customGliders`).set(customGliders);
+                } else {
+                    customGliders = Array.isArray(val) ? val : Object.values(val);
+                }
+                populateAircraftSelects();
+                if (!fleetModal.classList.contains('hidden')) renderFleetLists();
+            });
+
+            database.ref(`airportData/${id}/customTows`).on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val === null) {
+                    customTows = [...defaultTows];
+                    database.ref(`airportData/${id}/customTows`).set(customTows);
+                } else {
+                    customTows = Array.isArray(val) ? val : Object.values(val);
+                }
+                populateAircraftSelects();
+                if (!fleetModal.classList.contains('hidden')) renderFleetLists();
+            });
+
+            database.ref(`airportData/${id}/customTowPilots`).on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val === null) {
+                    customTowPilots = [...defaultTowPilots];
+                    database.ref(`airportData/${id}/customTowPilots`).set(customTowPilots);
+                } else {
+                    customTowPilots = Array.isArray(val) ? val : Object.values(val);
+                }
+                populateTowPilotSelect();
+                if (!fleetModal.classList.contains('hidden')) renderFleetLists();
+            });
+        }
+
+        function saveData() {
+            if (!currentAirportId) return;
+            database.ref(`airportData/${currentAirportId}/activeFlights`).set(activeFlights);
+            database.ref(`airportData/${currentAirportId}/completedFlights`).set(completedFlights);
+            database.ref(`airportData/${currentAirportId}/customGliders`).set(customGliders);
+            database.ref(`airportData/${currentAirportId}/customTows`).set(customTows);
+            database.ref(`airportData/${currentAirportId}/customTowPilots`).set(customTowPilots);
+        }
+
+        function logAction(actionType, details) {
+            if (!currentAirportId) return;
+            const userStr = currentUserData?.fullName || currentUser?.email || 'Neznámý uživatel';
+            const newLog = {
+                id: Date.now() + Math.random(),
+                timestamp: new Date().toISOString(),
+                user: userStr,
+                type: actionType,
+                details: details
+            };
+            auditLogs.unshift(newLog);
+            if (auditLogs.length > 150) auditLogs = auditLogs.slice(0, 150);
+            database.ref(`airportData/${currentAirportId}/auditLogs`).set(auditLogs);
+        }
+
+        database.ref('users').on('value', (snapshot) => {
+            allUsersMap = snapshot.val() || {};
+            updatePilotsDatalist();
+            if (!fleetModal.classList.contains('hidden')) renderAdminUsersList();
+            if (!superAdminModal.classList.contains('hidden')) renderSuperadminUsersList();
+        });
+
+        function updatePilotsDatalist() {
+            const datalist = document.getElementById('pilots-list');
+            datalist.innerHTML = '';
+
+            if (allUsersMap && currentAirportId) {
+                const usersArray = Object.values(allUsersMap)
+                    .filter(u => (u.airportId === currentAirportId || u.role === 'superadmin') && u.role !== 'guest')
+                    .sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+
+                usersArray.forEach(u => {
+                    if (u.fullName) {
+                        const option = document.createElement('option');
+                        option.value = u.fullName;
+                        datalist.appendChild(option);
+                    }
+                });
+            }
+        }
+
+        // ==========================================
+        // 3. AUTH & OPRAVNĚNÍ
+        // ==========================================
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                await user.reload();
+                if (!user.emailVerified) {
+                    alert("Váš e-mail nebyl ověřen. Zkontrolujte schránku a klikněte na ověřovací odkaz.");
+                    auth.signOut();
+                    return;
+                }
+
+                currentUser = user;
+                const snapshot = await database.ref('users/' + user.uid).once('value');
+                currentUserData = snapshot.val();
+
+                if (!currentUserData) {
+                    currentUserData = {
+                        email: user.email,
+                        fullName: user.email.split('@')[0],
+                        role: 'starter',
+                        airportId: currentAirportId || 'lkst'
+                    };
+                    database.ref('users/' + user.uid).set(currentUserData);
+                } else if (currentUserData.role === 'pilot') {
+                    currentUserData.role = 'starter';
+                    database.ref('users/' + user.uid + '/role').set('starter');
+                }
+
+                const pilotInput = document.getElementById('pilot-name');
+                if (pilotInput && currentUserData && currentUserData.fullName && !pilotInput.value) {
+                    pilotInput.value = currentUserData.fullName;
+                }
+            } else {
+                currentUser = null;
+                currentUserData = null;
+            }
+            updateUIForPermissions();
+        });
+
+        function userHasWritePermissionForCurrentAirport() {
+            if (!currentUser || !currentUserData) return false;
+            if (currentUserData.role === 'superadmin') return true;
+            const userAirport = currentUserData.airportId || 'lkst';
+            if (userAirport !== currentAirportId) return false;
+            return currentUserData.role === 'admin' || currentUserData.role === 'starter';
+        }
+
+        function userIsAdminForCurrentAirport() {
+            if (!currentUser || !currentUserData) return false;
+            if (currentUserData.role === 'superadmin') return true;
+            return currentUserData.role === 'admin' && (currentUserData.airportId === currentAirportId);
+        }
+
+        function updateUIForPermissions() {
+            const isSuperAdmin = currentUserData && currentUserData.role === 'superadmin';
+            const canWrite = userHasWritePermissionForCurrentAirport();
+            const isAdmin = userIsAdminForCurrentAirport();
+
+            if (currentUser && currentUserData) {
+                let roleLabel = "Host (Guest)";
+                if (currentUserData.role === 'superadmin') roleLabel = "SuperAdmin";
+                else if (currentUserData.role === 'admin') roleLabel = `Admin (${currentUserData.airportId?.toUpperCase() || ''})`;
+                else if (currentUserData.role === 'starter') roleLabel = `Startér / Pilot (${currentUserData.airportId?.toUpperCase() || ''})`;
+
+                userRoleBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-emerald-950 border-emerald-700 text-emerald-300";
+                userRoleBadge.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i><span>${currentUserData.fullName || currentUser.email} (${roleLabel})</span>`;
+                authActionBtnText.textContent = "Odhlásit";
+
+                if (currentUserData.role !== 'superadmin' && currentUserData.airportId !== currentAirportId) {
+                    viewerWarningBanner.classList.remove('hidden');
+                    viewerBannerText.textContent = `Jste přihlášeni jako člen letiště ${currentUserData.airportId?.toUpperCase()}. Pro prohlížení letiště ${currentAirportId?.toUpperCase()} jste v režimu Pouze pro čtení (Divák).`;
+                } else {
+                    viewerWarningBanner.classList.add('hidden');
+                }
+            } else {
+                userRoleBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-slate-800 border-slate-700 text-slate-300";
+                userRoleBadge.innerHTML = `<i data-lucide="eye" class="w-4 h-4 text-amber-400"></i><span>Režim Čtení (Divák)</span>`;
+                authActionBtnText.textContent = "Přihlásit se";
+                viewerWarningBanner.classList.remove('hidden');
+                viewerBannerText.textContent = "Jste v režimu Pouze pro čtení (Divák). Pro zadávání startů a přistání se přihlaste s rolí Startér / Pilot.";
+            }
+
+            if (canWrite) {
+                formDisabledOverlay.classList.add('hidden');
+            } else {
+                formDisabledOverlay.classList.remove('hidden');
+                if (currentUser && currentUserData && currentUserData.airportId !== currentAirportId) {
+                    formDisabledText.textContent = `Nemáte oprávnění zapisovat na letišti ${currentAirportId?.toUpperCase()}. Vaše domovské letiště je ${currentUserData.airportId?.toUpperCase()}.`;
+                } else if (currentUser && currentUserData && currentUserData.role === 'guest') {
+                    formDisabledText.textContent = "Váš účet má roli 'Host' (pouze pro čtení). Požádejte správce letiště o nastavení role Startér / Pilot.";
+                } else {
+                    formDisabledText.textContent = "Zadávání nových letů vyžaduje přihlášení v roli Startér / Pilot nebo Admin pro toto letiště.";
+                }
+            }
+
+            if (isAdmin) openFleetModalBtn.classList.remove('hidden');
+            else openFleetModalBtn.classList.add('hidden');
+
+            if (isSuperAdmin) openSuperadminBtn.classList.remove('hidden');
+            else openSuperadminBtn.classList.add('hidden');
+
+            lucide.createIcons();
+            if (currentTab === 'today') renderTodayView();
+            else if (currentTab === 'history') applyHistoryFilters();
+            else if (currentTab === 'logs') applyLogFilters();
+        }
+
+        window.handleAuthButton = function() {
+            if (currentUser) {
+                auth.signOut().then(() => alert("Byli jste odhláseni."));
+            } else {
+                openAuthModal();
+            }
+        };
+
+        window.openAuthModal = function() {
+            authErrorMsg.classList.add('hidden');
+            authSuccessMsg.classList.add('hidden');
+            document.getElementById('auth-email').value = '';
+            document.getElementById('auth-password').value = '';
+            document.getElementById('auth-fullname').value = '';
+            isRegisterMode = false;
+            isPasswordResetMode = false;
+            updateAuthModalUI();
+            authModal.classList.remove('hidden');
+        };
+
+        window.closeAuthModal = function() {
+            authModal.classList.add('hidden');
+            if (resendIntervalTimer) clearInterval(resendIntervalTimer);
+        };
+
+        window.toggleAuthMode = function() {
+            isRegisterMode = !isRegisterMode;
+            isPasswordResetMode = false;
+            authErrorMsg.classList.add('hidden');
+            authSuccessMsg.classList.add('hidden');
+            updateAuthModalUI();
+        };
+
+        window.togglePasswordResetMode = function() {
+            isPasswordResetMode = !isPasswordResetMode;
+            authErrorMsg.classList.add('hidden');
+            authSuccessMsg.classList.add('hidden');
+            updateAuthModalUI();
+        };
+
+        function populateAuthAirportSelect() {
+            const select = document.getElementById('auth-home-airport');
+            select.innerHTML = '';
+            const sorted = getSortedAirportsArray();
+            sorted.forEach(ap => {
+                const opt = document.createElement('option');
+                opt.value = ap.id;
+                opt.textContent = `${ap.name} (${ap.icao})`;
+                select.appendChild(opt);
+            });
+            if (currentAirportId) select.value = currentAirportId;
+        }
+
+        function updateAuthModalUI() {
+            const titleEl = document.getElementById('auth-modal-title');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const nameContainer = document.getElementById('auth-name-container');
+            const passwordGroup = document.getElementById('auth-password-group');
+            const toggleModeBtn = document.getElementById('auth-toggle-mode-btn');
+            const airportSelectContainer = document.getElementById('auth-airport-select-container');
+
+            if (isPasswordResetMode) {
+                titleEl.textContent = "Obnovení hesla";
+                submitBtn.textContent = "Odeslat odkaz";
+                nameContainer.classList.add('hidden');
+                passwordGroup.classList.add('hidden');
+                airportSelectContainer.classList.add('hidden');
+                resendContainer.classList.remove('hidden');
+                toggleModeBtn.innerHTML = '<span>Zpět na přihlášení</span>';
+            } else if (isRegisterMode) {
+                titleEl.textContent = "Registrace nového účtu";
+                submitBtn.textContent = "Zaregistrovat se";
+                nameContainer.classList.remove('hidden');
+                passwordGroup.classList.remove('hidden');
+                airportSelectContainer.classList.remove('hidden');
+                resendContainer.classList.remove('hidden');
+                toggleModeBtn.innerHTML = '<span>Už máte účet? Přihlaste se</span>';
+            } else {
+                titleEl.textContent = "Přihlášení uživatele";
+                submitBtn.textContent = "Přihlásit se";
+                nameContainer.classList.add('hidden');
+                passwordGroup.classList.remove('hidden');
+                airportSelectContainer.classList.add('hidden');
+                resendContainer.classList.add('hidden');
+                toggleModeBtn.innerHTML = '<span>Nemáte účet? Zaregistrujte se</span>';
+            }
+            updateResendButtonState();
+        }
+
+        function updateResendButtonState() {
+            if (resendIntervalTimer) clearInterval(resendIntervalTimer);
+            const now = Date.now();
+            const elapsed = (now - lastResendTimestamp) / 1000;
+            const cooldown = 30;
+
+            if (elapsed < cooldown) {
+                let remaining = Math.ceil(cooldown - elapsed);
+                resendBtn.disabled = true;
+                resendBtn.className = "w-full bg-slate-200 text-slate-400 font-bold text-xs py-2.5 px-4 rounded-xl cursor-not-allowed border border-slate-300";
+                resendBtn.textContent = `Znovu odeslat e-mail (${remaining}s)`;
+
+                resendIntervalTimer = setInterval(() => {
+                    const diff = Math.ceil(cooldown - ((Date.now() - lastResendTimestamp) / 1000));
+                    if (diff <= 0) {
+                        clearInterval(resendIntervalTimer);
+                        resendBtn.disabled = false;
+                        resendBtn.className = "w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition border border-slate-300";
+                        resendBtn.textContent = "Znovu odeslat e-mail";
+                    } else {
+                        resendBtn.textContent = `Znovu odeslat e-mail (${diff}s)`;
+                    }
+                }, 1000);
+            } else {
+                resendBtn.disabled = false;
+                resendBtn.className = "w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition border border-slate-300";
+                resendBtn.textContent = "Znovu odeslat e-mail";
+            }
+        }
+
+        window.resendVerificationOrResetEmail = async function() {
+            const email = document.getElementById('auth-email').value.trim();
+            authErrorMsg.classList.add('hidden');
+            authSuccessMsg.classList.add('hidden');
+
+            if (!email) {
+                authErrorMsg.textContent = "Zadejte prosím e-mailovou adresu do políčka výše.";
+                authErrorMsg.classList.remove('hidden');
+                return;
+            }
+
+            const now = Date.now();
+            if ((now - lastResendTimestamp) / 1000 < 30) return;
+
+            try {
+                if (isPasswordResetMode) {
+                    await auth.sendPasswordResetEmail(email);
+                    lastResendTimestamp = Date.now();
+                    authSuccessMsg.textContent = "Odkaz pro obnovení hesla byl znovu odeslán na " + email;
+                    authSuccessMsg.classList.remove('hidden');
+                } else if (isRegisterMode) {
+                    authErrorMsg.textContent = "Pro opětovné zaslání ověřovacího odkazu se prosím nejdříve pokuste přihlásit s vaším heslem.";
+                    authErrorMsg.classList.remove('hidden');
+                    return;
+                } else {
+                    const userCredential = await auth.signInWithEmailAndPassword(email, document.getElementById('auth-password').value);
+                    if (!userCredential.user.emailVerified) {
+                        await userCredential.user.sendEmailVerification();
+                        lastResendTimestamp = Date.now();
+                        authSuccessMsg.textContent = "Ověřovací e-mail byl úspěšně odeslán znovu.";
+                        authSuccessMsg.classList.remove('hidden');
+                    } else {
+                        authSuccessMsg.textContent = "Tento e-mail je již ověřený, můžete se přihlásit.";
+                        authSuccessMsg.classList.remove('hidden');
+                    }
+                    auth.signOut();
+                }
+                updateResendButtonState();
+            } catch (error) {
+                authErrorMsg.textContent = "Chyba: " + error.message;
+                authErrorMsg.classList.remove('hidden');
+            }
+        };
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            authErrorMsg.classList.add('hidden');
+            authSuccessMsg.classList.add('hidden');
+
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const fullName = document.getElementById('auth-fullname').value.trim();
+            const selectedHomeAirport = document.getElementById('auth-home-airport').value;
+
+            try {
+                if (isPasswordResetMode) {
+                    if (!email) throw new Error("Zadejte e-mail.");
+                    await auth.sendPasswordResetEmail(email);
+                    lastResendTimestamp = Date.now();
+                    updateResendButtonState();
+                    authSuccessMsg.textContent = "Odkaz pro obnovení hesla byl odeslán na " + email;
+                    authSuccessMsg.classList.remove('hidden');
+                } else if (isRegisterMode) {
+                    if (!fullName) throw new Error("Vyplňte svoje jméno.");
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.sendEmailVerification();
+                    lastResendTimestamp = Date.now();
+                    updateResendButtonState();
+
+                    await database.ref('users/' + userCredential.user.uid).set({
+                        email: email,
+                        fullName: fullName,
+                        role: 'starter',
+                        airportId: selectedHomeAirport || 'lkst'
+                    });
+
+                    authSuccessMsg.textContent = "Registrace úspěšná! Na e-mail byl odeslán ověřovací odkaz.";
+                    authSuccessMsg.classList.remove('hidden');
+                    auth.signOut();
+                } else {
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    await userCredential.user.reload();
+
+                    if (!userCredential.user.emailVerified) {
+                        authErrorMsg.textContent = "E-mail nebyl ověřen. Zkontrolujte schránku nebo klikněte na 'Znovu odeslat e-mail'.";
+                        authErrorMsg.classList.remove('hidden');
+                        resendContainer.classList.remove('hidden');
+                        auth.signOut();
+                        return;
+                    }
+                    closeAuthModal();
+                }
+            } catch (error) {
+                authErrorMsg.textContent = "Chyba: " + error.message;
+                authErrorMsg.classList.remove('hidden');
+            }
+        });
+
+        // ==========================================
+        // 4. SUPERADMIN PANEL
+        // ==========================================
+        window.openSuperAdminModal = function() {
+            if (!currentUserData || currentUserData.role !== 'superadmin') return;
+            renderSuperadminUsersList();
+            renderSuperadminAirportsList();
+            superAdminModal.classList.remove('hidden');
+        };
+
+        window.closeSuperAdminModal = function() { superAdminModal.classList.add('hidden'); };
+
+        createAirportForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!currentUserData || currentUserData.role !== 'superadmin') return;
+
+            const icao = document.getElementById('new-airport-icao').value.trim().toLowerCase();
+            const name = document.getElementById('new-airport-name').value.trim();
+            const logoUrl = document.getElementById('new-airport-logo').value.trim();
+
+            if (!icao || !name) return;
+
+            const existingCount = Object.keys(airportsList).length;
+
+            database.ref(`airports/${icao}`).set({
+                name: name,
+                icao: icao.toUpperCase(),
+                order: existingCount,
+                logoUrl: logoUrl || ""
+            }).then(() => {
+                alert(`Letiště ${name} (${icao.toUpperCase()}) bylo vytvořeno!`);
+                document.getElementById('new-airport-icao').value = '';
+                document.getElementById('new-airport-name').value = '';
+                document.getElementById('new-airport-logo').value = '';
+            }).catch(err => alert("Chyba: " + err.message));
+        });
+
+        function renderSuperadminAirportsList() {
+            superadminAirportsList.innerHTML = '';
+            const sorted = getSortedAirportsArray();
+
+            sorted.forEach((ap, index) => {
+                const row = document.createElement('div');
+                row.className = "flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-3 rounded-xl border border-slate-200 text-xs gap-3";
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                            ${ap.logoUrl ? `<img src="${ap.logoUrl}" class="w-full h-full object-contain">` : `<i data-lucide="plane" class="w-4 h-4 text-slate-400"></i>`}
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-mono font-bold bg-purple-100 text-purple-900 px-2 py-0.5 rounded">${ap.icao}</span>
+                                <span class="font-semibold text-slate-800">${ap.name}</span>
+                            </div>
+                            <input type="text" value="${ap.logoUrl || ''}" placeholder="URL adresa loga..." onchange="updateAirportLogo('${ap.id}', this.value)" class="mt-1 w-full sm:w-64 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-[11px] outline-none focus:ring-1 focus:ring-purple-500" title="URL adresa loga">
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-1 self-end sm:self-center">
+                        <button type="button" onclick="moveAirportOrder('${ap.id}', -1)" ${index === 0 ? 'disabled' : ''} class="p-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-lg text-slate-700 font-bold" title="Posunout nahoru">
+                            <i data-lucide="chevron-up" class="w-4 h-4"></i>
+                        </button>
+                        <button type="button" onclick="moveAirportOrder('${ap.id}', 1)" ${index === sorted.length - 1 ? 'disabled' : ''} class="p-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-lg text-slate-700 font-bold" title="Posunout dolů">
+                            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                        </button>
+                        <button type="button" onclick="openDeleteAirportModal('${ap.id}')" class="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg ml-2 font-bold" title="Smazat letiště">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+                superadminAirportsList.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        window.updateAirportLogo = function(id, newLogoUrl) {
+            if (!currentUserData || currentUserData.role !== 'superadmin') return;
+            database.ref(`airports/${id}/logoUrl`).set(newLogoUrl.trim()).then(() => {
+                if (airportsList[id]) airportsList[id].logoUrl = newLogoUrl.trim();
+                if (currentAirportId === id) updateCurrentAirportLabel();
+            }).catch(err => alert("Chyba při ukládání loga: " + err.message));
+        };
+
+        window.moveAirportOrder = function(id, direction) {
+            if (!currentUserData || currentUserData.role !== 'superadmin') return;
+            const sorted = getSortedAirportsArray();
+            const idx = sorted.findIndex(a => a.id === id);
+            if (idx === -1) return;
+
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= sorted.length) return;
+
+            const temp = sorted[idx];
+            sorted[idx] = sorted[targetIdx];
+            sorted[targetIdx] = temp;
+
+            const updates = {};
+            sorted.forEach((item, i) => {
+                updates[`airports/${item.id}/order`] = i;
+            });
+
+            database.ref().update(updates).then(() => {
+                sorted.forEach((item, i) => {
+                    if (airportsList[item.id]) {
+                        airportsList[item.id].order = i;
+                    }
+                });
+                renderSuperadminAirportsList();
+                renderAirportGrid();
+            }).catch(err => alert("Chyba při změně pořadí: " + err.message));
+        };
+
+        window.openDeleteAirportModal = function(id) {
+            if (!currentUserData || currentUserData.role !== 'superadmin') return;
+            airportToDeleteId = id;
+            currentAirportRandomCode = String(Math.floor(1000 + Math.random() * 9000));
+            document.getElementById('delete-airport-random-code').textContent = currentAirportRandomCode;
+            document.getElementById('delete-airport-confirm-input').value = '';
+            document.getElementById('delete-airport-error-msg').classList.add('hidden');
+            deleteAirportModal.classList.remove('hidden');
+        };
+
+        window.closeDeleteAirportModal = function() {
+            deleteAirportModal.classList.add('hidden');
+            airportToDeleteId = null;
+        };
+
+        window.executeDeleteAirport = function() {
+            if (!currentUserData || currentUserData.role !== 'superadmin') return;
+            const inputVal = document.getElementById('delete-airport-confirm-input').value.trim();
+            if (inputVal !== currentAirportRandomCode) {
+                document.getElementById('delete-airport-error-msg').classList.remove('hidden');
+                return;
+            }
+
+            const targetId = airportToDeleteId;
+            database.ref(`airports/${targetId}`).remove();
+            database.ref(`airportData/${targetId}`).remove().then(() => {
+                alert("Letiště bylo trvale smazáno.");
+                closeDeleteAirportModal();
+                if (currentAirportId === targetId) {
+                    currentAirportId = null;
+                    localStorage.removeItem('startovka_selected_airport');
+                    openAirportSelector();
+                }
+            }).catch(err => alert("Chyba při mazání: " + err.message));
+        };
+
+        function renderSuperadminUsersList() {
+            superadminUsersList.innerHTML = '';
+            if (!allUsersMap) { superadminUsersList.innerHTML = `<div class="text-xs text-slate-400">Žádní uživatelé.</div>`; return; }
+
+            Object.keys(allUsersMap).forEach(uid => {
+                const u = allUsersMap[uid];
+                const row = document.createElement('div');
+                row.className = "flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-3 rounded-xl border border-slate-200 text-xs gap-2";
+
+                let airportsOptionsHtml = Object.keys(airportsList).map(apId =>
+                    `<option value="${apId}" ${u.airportId === apId ? 'selected' : ''}>${airportsList[apId].icao}</option>`
+                ).join('');
+
+                const currentRole = u.role === 'pilot' ? 'starter' : u.role;
+
+                row.innerHTML = `
+                    <div>
+                        <div class="font-bold text-slate-800">${u.fullName || 'Bez jména'}</div>
+                        <div class="text-slate-500 text-[11px]">${u.email}</div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <select onchange="updateUserAirport('${uid}', this.value)" class="bg-slate-100 border border-slate-300 font-semibold p-1.5 rounded-lg outline-none text-xs">
+                            ${airportsOptionsHtml}
+                        </select>
+                        <select onchange="updateUserRoleGlobal('${uid}', this.value)" class="bg-purple-50 border border-purple-300 font-bold p-1.5 rounded-lg outline-none text-xs text-purple-900">
+                            <option value="guest" ${currentRole === 'guest' ? 'selected' : ''}>Host (Guest)</option>
+                            <option value="starter" ${currentRole === 'starter' ? 'selected' : ''}>Startér / Pilot</option>
+                            <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>Admin Letiště</option>
+                            <option value="superadmin" ${currentRole === 'superadmin' ? 'selected' : ''}>★ SuperAdmin</option>
+                        </select>
+                    </div>
+                `;
+                superadminUsersList.appendChild(row);
+            });
+        }
+
+        window.updateUserRoleGlobal = function(uid, newRole) {
+            if (!currentUserData || currentUserData.role !== 'superadmin') return;
+            database.ref('users/' + uid + '/role').set(newRole)
+                .then(() => alert("Role byla změněna."))
+                .catch(err => alert("Chyba: " + err.message));
+        };
+
+        window.updateUserAirport = function(uid, newAirportId) {
+            if (!currentUserData || currentUserData.role !== 'superadmin') return;
+            database.ref('users/' + uid + '/airportId').set(newAirportId)
+                .then(() => alert("Domovské letiště bylo změněno."))
+                .catch(err => alert("Chyba: " + err.message));
+        };
+
+        // ==========================================
+        // 5. SPRÁVA FLOTILY LETIŠTĚ
+        // ==========================================
+        window.openFleetModal = function() {
+            if (!userIsAdminForCurrentAirport()) { alert("Nemáte oprávnění správce pro toto letiště!"); return; }
+            document.getElementById('modal-airport-title').textContent = airportsList[currentAirportId]?.icao || currentAirportId;
+            renderFleetLists();
+            renderAdminUsersList();
+            fleetModal.classList.remove('hidden');
+        };
+
+        window.closeFleetModal = function() { fleetModal.classList.add('hidden'); };
+
+        function renderFleetLists() {
+            modalGlidersList.innerHTML = customGliders.length === 0
+                ? `<div class="text-xs text-slate-400 italic">Žádné větroně.</div>`
+                : customGliders.map((g, i) => `
+                    <div class="flex justify-between items-center bg-slate-100 p-2 rounded-lg text-xs font-semibold">
+                        <span>${g}</span>
+                        <button onclick="removeGlider(${i})" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>`).join('');
+
+            modalTowsList.innerHTML = customTows.length === 0
+                ? `<div class="text-xs text-slate-400 italic">Žádné vlečné.</div>`
+                : customTows.map((t, i) => `
+                    <div class="flex justify-between items-center bg-amber-50 border border-amber-200 p-2 rounded-lg text-xs font-semibold">
+                        <span>${t}</span>
+                        <button onclick="removeTow(${i})" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>`).join('');
+
+            modalTowPilotsList.innerHTML = customTowPilots.length === 0
+                ? `<div class="text-xs text-slate-400 italic">Žádní vlekaři.</div>`
+                : customTowPilots.map((p, i) => `
+                    <div class="flex justify-between items-center bg-amber-50 border border-amber-200 p-2 rounded-lg text-xs font-semibold">
+                        <span>${p}</span>
+                        <button onclick="removeTowPilot(${i})" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>`).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderAdminUsersList() {
+            adminUsersList.innerHTML = '';
+            if (!allUsersMap) { adminUsersList.innerHTML = `<div class="text-xs text-slate-400">Žádní členové.</div>`; return; }
+
+            Object.keys(allUsersMap).forEach(uid => {
+                const u = allUsersMap[uid];
+                if (u.airportId === currentAirportId && u.role !== 'superadmin') {
+                    const row = document.createElement('div');
+                    row.className = "flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-200 text-xs";
+                    const currentRole = u.role === 'pilot' ? 'starter' : u.role;
+
+                    row.innerHTML = `
+                        <div>
+                            <div class="font-bold text-slate-800">${u.fullName || 'Bez jména'}</div>
+                            <div class="text-slate-500 text-[11px]">${u.email}</div>
+                        </div>
+                        <select onchange="changeUserRoleLocal('${uid}', this.value)" class="bg-slate-100 border border-slate-300 font-semibold p-1.5 rounded-lg outline-none">
+                            <option value="guest" ${currentRole === 'guest' ? 'selected' : ''}>Host (Guest)</option>
+                            <option value="starter" ${currentRole === 'starter' ? 'selected' : ''}>Startér / Pilot</option>
+                            <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>Admin Letiště</option>
+                        </select>
+                    `;
+                    adminUsersList.appendChild(row);
+                }
+            });
+        }
+
+        window.changeUserRoleLocal = function(uid, newRole) {
+            if (!userIsAdminForCurrentAirport()) return;
+            database.ref('users/' + uid + '/role').set(newRole)
+                .then(() => {
+                    alert("Role byla aktualizována.");
+                    logAction('Změna role', `Změněna role uživatele ID ${uid} na ${newRole}`);
+                })
+                .catch(err => alert("Chyba: " + err.message));
+        };
+
+        addAircraftForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!userIsAdminForCurrentAirport()) return;
+
+            const category = document.getElementById('modal-aircraft-category').value;
+            const name = document.getElementById('modal-aircraft-name').value.trim();
+            if (!name) return;
+
+            if (category === 'gliders') {
+                if (!customGliders.includes(name)) {
+                    customGliders.push(name);
+                    logAction('Přidání větroně', `Přidán větroň/letadlo: ${name}`);
+                }
+            } else if (category === 'tows') {
+                if (!customTows.includes(name)) {
+                    customTows.push(name);
+                    logAction('Přidání vlečné', `Přidána vlečná: ${name}`);
+                }
+            } else if (category === 'towPilots') {
+                if (!customTowPilots.includes(name)) {
+                    customTowPilots.push(name);
+                    logAction('Přidání vlekaře', `Přidán vlekař: ${name}`);
+                }
+            }
+
+            document.getElementById('modal-aircraft-name').value = '';
+            saveData();
+            populateAircraftSelects();
+            populateTowPilotSelect();
+            renderFleetLists();
+        });
+
+        window.removeGlider = function(i) {
+            if (!userIsAdminForCurrentAirport()) return;
+            const removed = customGliders[i];
+            customGliders.splice(i, 1);
+            saveData();
+            populateAircraftSelects();
+            renderFleetLists();
+            logAction('Smazání větroně', `Odebrán větroň: ${removed}`);
+        };
+
+        window.removeTow = function(i) {
+            if (!userIsAdminForCurrentAirport()) return;
+            const removed = customTows[i];
+            customTows.splice(i, 1);
+            saveData();
+            populateAircraftSelects();
+            renderFleetLists();
+            logAction('Smazání vlečné', `Odebrána vlečná: ${removed}`);
+        };
+
+        window.removeTowPilot = function(i) {
+            if (!userIsAdminForCurrentAirport()) return;
+            const removed = customTowPilots[i];
+            customTowPilots.splice(i, 1);
+            saveData();
+            populateTowPilotSelect();
+            renderFleetLists();
+            logAction('Smazání vlekaře', `Odebrán vlekař: ${removed}`);
+        };
+
+        // ==========================================
+        // 6. LOGIKA LETŮ
+        // ==========================================
+        function populateAircraftSelects() {
+            aircraftSelect.innerHTML = '';
+            customGliders.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                aircraftSelect.appendChild(opt);
+            });
+
+            towAircraftSelect.innerHTML = '';
+            customTows.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                towAircraftSelect.appendChild(opt);
+            });
+        }
+
+        function populateTowPilotSelect() {
+            if (!towPilotSelect) return;
+            const currentVal = towPilotSelect.value || lastTowPilot;
+            towPilotSelect.innerHTML = '';
+            customTowPilots.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                towPilotSelect.appendChild(opt);
+            });
+            if (currentVal) towPilotSelect.value = currentVal;
+        }
+
+        launchTypeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'Aerovlek') {
+                    towDetailsSection.classList.remove('hidden');
+                    if (lastTowPilot && towPilotSelect) towPilotSelect.value = lastTowPilot;
+                } else {
+                    towDetailsSection.classList.add('hidden');
+                }
+            });
+        });
+
+        function getYYYYMMDD(dateObj) {
+            const d = new Date(dateObj);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+        }
+
+        function formatCzechDate(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('cs-CZ', { timeZone: 'UTC', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function formatTime(dateIso) {
+            if (!dateIso) return '-';
+            const d = new Date(dateIso);
+            return d.toLocaleTimeString('cs-CZ', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function formatTimeInput(dateIso) {
+            if (!dateIso) return '';
+            const d = new Date(dateIso);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+        }
+
+        function createIsoFromTimeString(originalIso, timeStr) {
+            if (!timeStr) return null;
+            const baseDate = originalIso ? new Date(originalIso) : new Date();
+            const parts = timeStr.split(':');
+            const newDate = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate(), parts[0], parts[1], parts[2] || 0));
+            return newDate.toISOString();
+        }
+
+        function getDurationFormatted(startTime, endTime = new Date()) {
+            if (!startTime) return '-';
+            const diffMs = new Date(endTime) - new Date(startTime);
+            const totalSecs = Math.max(0, Math.floor(diffMs / 1000));
+            const hrs = Math.floor(totalSecs / 3600);
+            const mins = Math.floor((totalSecs % 3600) / 60);
+            const secs = totalSecs % 60;
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+        }
+
+        function getDurationFormattedHHMM(startTime, endTime) {
+            if (!startTime || !endTime) return '-';
+            const diffMs = new Date(endTime) - new Date(startTime);
+            let totalSecs = Math.max(0, Math.floor(diffMs / 1000));
+
+            const secs = totalSecs % 60;
+            if (secs >= 30) {
+                totalSecs += (60 - secs);
+            } else {
+                totalSecs -= secs;
+            }
+
+            const totalMins = Math.floor(totalSecs / 60);
+            const hrs = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(hrs)}:${pad(mins)}`;
+        }
+
+        function getDurationInSeconds(startTime, endTime) {
+            if (!startTime || !endTime) return 0;
+            const diff = new Date(endTime) - new Date(startTime);
+            return Math.max(0, Math.floor(diff / 1000));
+        }
+
+        function formatSecondsToHHMMSS(totalSecs) {
+            const hrs = Math.floor(totalSecs / 3600);
+            const mins = Math.floor((totalSecs % 3600) / 60);
+            const secs = totalSecs % 60;
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+        }
+
+        function recalculateDurations(flight) {
+            if (flight.gliderLandingTime) flight.gliderDuration = getDurationFormattedHHMM(flight.takeoffTime, flight.gliderLandingTime);
+            if (flight.towLandingTime) flight.towDuration = getDurationFormattedHHMM(flight.takeoffTime, flight.towLandingTime);
+        }
+
+        startForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!userHasWritePermissionForCurrentAirport()) {
+                openAuthModal();
+                return;
+            }
+
+            const aircraft = aircraftSelect.value;
+            const pilot = document.getElementById('pilot-name').value.trim();
+            const copilot = document.getElementById('copilot-name').value.trim();
+            const task = document.getElementById('task-name').value.trim();
+            const launchType = document.querySelector('input[name="launch-type"]:checked').value;
+
+            if (!aircraft || !pilot) {
+                alert("Vyplňte prosím větroň a jméno pilota!");
+                return;
+            }
+
+            const towPilotVal = towPilotSelect ? towPilotSelect.value : '';
+
+            if (launchType === 'Aerovlek' && !towPilotVal) {
+                alert("Pro aerovlek vyberte vlekaře!");
+                if (towPilotSelect) towPilotSelect.focus();
+                return;
+            }
+
+            if (launchType === 'Aerovlek' && towPilotVal) {
+                lastTowPilot = towPilotVal;
+                localStorage.setItem('startovka_last_tow_pilot', lastTowPilot);
+            }
+
+            const starterName = currentUserData?.fullName || currentUser?.email || 'Neznámý';
+
+            const now = new Date();
+            const newFlight = {
+                id: Date.now(),
+                aircraft: aircraft,
+                pilot: pilot,
+                copilot: copilot || '-',
+                task: task || '-',
+                launchType: launchType,
+                takeoffTime: now.toISOString(),
+                towAircraft: launchType === 'Aerovlek' ? towAircraftSelect.value : null,
+                towPilot: launchType === 'Aerovlek' ? towPilotVal : null,
+                towLandingTime: null,
+                towDuration: '-',
+                gliderLandingTime: null,
+                gliderDuration: '-',
+                createdBy: starterName,
+                endedBy: null
+            };
+
+            activeFlights.unshift(newFlight);
+            saveData();
+            logAction('Odstartování', `Letadlo ${aircraft}, pilot: ${pilot} (${launchType}), vzlet v ${formatTime(newFlight.takeoffTime)}`);
+            renderTodayView();
+
+            document.getElementById('pilot-name').value = '';
+            document.getElementById('copilot-name').value = '';
+            document.getElementById('task-name').value = '';
+            if (towPilotSelect) towPilotSelect.value = lastTowPilot;
+        });
+
+        function checkAndCompleteFlight(flight) {
+            const isAero = flight.launchType === 'Aerovlek';
+            const isFinished = isAero ? (Boolean(flight.towLandingTime) && Boolean(flight.gliderLandingTime)) : Boolean(flight.gliderLandingTime);
+
+            if (isFinished) {
+                const currentUserString = currentUserData?.fullName || currentUser?.email || 'Neznámý';
+                flight.endedBy = currentUserString;
+
+                activeFlights = activeFlights.filter(f => f.id !== flight.id);
+                completedFlights.unshift(flight);
+                logAction('Ukončení letu', `Přistání letu ${flight.aircraft} (pilot: ${flight.pilot}) | Vzlet: ${formatTime(flight.takeoffTime)}, Přistání větroně: ${formatTime(flight.gliderLandingTime)}${isAero ? `, Přistání vlečné: ${formatTime(flight.towLandingTime)}` : ''}`);
+            }
+            saveData();
+            renderTodayView();
+        }
+
+        window.landTowFlight = function(id) {
+            if (!userHasWritePermissionForCurrentAirport()) { openAuthModal(); return; }
+            const flight = activeFlights.find(f => f.id === id);
+            if (flight && !flight.towLandingTime) {
+                flight.towLandingTime = new Date().toISOString();
+                flight.towDuration = getDurationFormattedHHMM(flight.takeoffTime, flight.towLandingTime);
+                logAction('Přistání vlečné', `Přistání vlečné ${flight.towAircraft} v ${formatTime(flight.towLandingTime)} (let ${flight.aircraft})`);
+                checkAndCompleteFlight(flight);
+            }
+        };
+
+        window.landGliderFlight = function(id) {
+            if (!userHasWritePermissionForCurrentAirport()) { openAuthModal(); return; }
+            const flight = activeFlights.find(f => f.id === id);
+            if (flight && !flight.gliderLandingTime) {
+                flight.gliderLandingTime = new Date().toISOString();
+                flight.gliderDuration = getDurationFormattedHHMM(flight.takeoffTime, flight.gliderLandingTime);
+                logAction('Přistání větroně', `Přistání větroně ${flight.aircraft} v ${formatTime(flight.gliderLandingTime)} (pilot: ${flight.pilot})`);
+                checkAndCompleteFlight(flight);
+            }
+        };
+
+        function renderTodayView() {
+            renderActiveFlights();
+            renderTodayCompletedFlights();
+        }
+
+        function renderActiveFlights() {
+            activeFlightsContainer.innerHTML = '';
+            activeCountBadge.textContent = `${activeFlights.length} ve vzduchu`;
+
+            if (activeFlights.length === 0) {
+                activeFlightsContainer.appendChild(noActiveFlightsEl);
+                return;
+            }
+
+            const canWrite = userHasWritePermissionForCurrentAirport();
+            const isAdmin = userIsAdminForCurrentAirport();
+
+            activeFlights.forEach(flight => {
+                const isAero = flight.launchType === 'Aerovlek';
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border-2 border-slate-300 p-4 rounded-xl flex flex-col gap-3 shadow-sm";
+
+                let towHtml = '';
+                if (isAero) {
+                    towHtml = `
+                        <div class="bg-amber-100/70 border border-amber-300 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mt-1">
+                            <div>
+                                <div class="text-xs font-bold text-amber-900 uppercase flex items-center gap-1">
+                                    <i data-lucide="plane" class="w-3.5 h-3.5 text-amber-700"></i>
+                                    Vlečná: <span class="text-slate-900">${flight.towAircraft || '-'}</span>
+                                </div>
+                                <div class="text-xs font-semibold text-amber-800">Vlekař: ${flight.towPilot || '-'}</div>
+                            </div>
+                            <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                                ${flight.towLandingTime ? `
+                                    <div class="text-right">
+                                        <span class="text-xs font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded">Přistála v ${formatTime(flight.towLandingTime)}</span>
+                                        <div class="text-xs font-mono font-bold text-slate-700">Doba: ${flight.towDuration || '-'}</div>
+                                    </div>
+                                ` : `
+                                    <div class="text-right">
+                                        <div class="text-[10px] font-bold text-amber-800 uppercase">Čas vlečné</div>
+                                        <div class="font-mono font-bold text-sm text-amber-900 timer" data-start="${flight.takeoffTime}">
+                                            ${getDurationFormatted(flight.takeoffTime)}
+                                        </div>
+                                    </div>
+                                    ${canWrite ? `
+                                        <button onclick="landTowFlight(${flight.id})" class="btn-touch bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-3 py-2 rounded-lg shadow flex items-center space-x-1 transition">
+                                            <i data-lucide="plane-landing" class="w-4 h-4"></i>
+                                            <span>Přistání vlečné</span>
+                                        </button>
+                                    ` : ``}
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-black text-lg text-slate-900">${flight.aircraft || '-'}</span>
+                                <span class="text-xs ${isAero ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-blue-100 text-blue-800'} font-bold px-2 py-0.5 rounded">${flight.launchType || '-'}</span>
+                                ${isAdmin ? `
+                                    <button onclick="openEditModal(${flight.id})" class="text-slate-400 hover:text-blue-600 p-1" title="Upravit let">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="openDeleteModal(${flight.id})" class="text-slate-400 hover:text-red-600 p-1" title="Smazat let">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <div class="text-sm font-semibold text-slate-700">
+                                <span>${flight.pilot || '-'}</span>
+                                ${flight.copilot && flight.copilot !== '-' ? `<span class="text-slate-500"> / ${flight.copilot}</span>` : ''}
+                            </div>
+                            ${flight.task && flight.task !== '-' ? `<div class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded inline-block">Úloha: ${flight.task}</div>` : ''}
+                            <div class="text-xs text-slate-500">
+                                Vzlet: <strong class="text-slate-800">${formatTime(flight.takeoffTime)}</strong>
+                                <span class="ml-1 text-[11px] text-slate-400 font-medium">(Odstartoval: ${flight.createdBy || 'Neznámý'})</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
+                            ${flight.gliderLandingTime ? `
+                                <div class="text-right">
+                                    <span class="text-xs font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-lg block">Větroň přistál v ${formatTime(flight.gliderLandingTime)}</span>
+                                    <div class="text-xs font-mono font-bold text-slate-700 mt-1">Doba: ${flight.gliderDuration || '-'}</div>
+                                </div>
+                            ` : `
+                                <div class="text-right">
+                                    <div class="text-xs font-bold text-slate-400 uppercase">Doba letu větroně</div>
+                                    <div class="font-mono font-black text-xl text-blue-600 timer" data-start="${flight.takeoffTime}">
+                                        ${getDurationFormatted(flight.takeoffTime)}
+                                    </div>
+                                </div>
+                                ${canWrite ? `
+                                    <button onclick="landGliderFlight(${flight.id})" class="btn-touch bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm px-4 py-3 rounded-xl shadow-md shadow-red-600/30 flex items-center space-x-1 transition active:bg-red-700">
+                                        <i data-lucide="plane-landing" class="w-5 h-5"></i>
+                                        <span>${isAero ? 'PŘISTÁNÍ VĚTRONĚ' : 'PŘISTÁNÍ'}</span>
+                                    </button>
+                                ` : ``}
+                            `}
+                        </div>
+                    </div>
+                    ${towHtml}
+                `;
+                activeFlightsContainer.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        function renderTodayCompletedFlights() {
+            todayTableBody.innerHTML = '';
+            const todayStr = getYYYYMMDD(new Date());
+            const todaysFlights = completedFlights.filter(f => getYYYYMMDD(f.takeoffTime) === todayStr);
+
+            if (todaysFlights.length === 0) {
+                noTodayCompletedEl.classList.remove('hidden');
+                return;
+            } else {
+                noTodayCompletedEl.classList.add('hidden');
+            }
+
+            todaysFlights.forEach(flight => {
+                const row = createFlightRow(flight);
+                todayTableBody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function getRegistration(fullAircraftString) {
+            if (!fullAircraftString) return '';
+            return fullAircraftString.replace(/\s*\(.*\)/, '').trim();
+        }
+
+        function createFlightRow(flight) {
+            const row = document.createElement('tr');
+            row.className = "hover:bg-slate-50 transition border-b border-slate-100 text-slate-800";
+            const isAero = flight.launchType === 'Aerovlek';
+            const isAdmin = userIsAdminForCurrentAirport();
+
+            row.innerHTML = `
+                <td class="p-2.5">
+                    <div class="font-bold text-xs">${getRegistration(flight.aircraft)}</div>
+                    ${isAero ? `<div class="text-[11px] text-amber-800 font-semibold">Vlečná: ${getRegistration(flight.towAircraft)}</div>` : ''}
+                </td>
+                <td class="p-2.5">
+                    <div class="text-xs font-semibold">${flight.pilot || '-'}${flight.copilot && flight.copilot !== '-' ? ` / ${flight.copilot}` : ''}</div>
+                    ${isAero ? `<div class="text-[11px] text-amber-800 font-medium">Vlekař: ${flight.towPilot || '-'}</div>` : ''}
+                </td>
+                <td class="p-2.5 text-xs">
+                    <div class="font-semibold text-blue-700">${flight.task || '-'}</div>
+                    <div class="text-[10px] text-slate-500">Start: <strong>${flight.createdBy || 'Neznámý'}</strong></div>
+                    <div class="text-[10px] text-emerald-700">Přistání: <strong>${flight.endedBy || 'Neznámý'}</strong></div>
+                </td>
+                <td class="p-2.5 text-[11px] font-semibold text-slate-600">${flight.launchType || '-'}</td>
+                <td class="p-2.5 font-mono text-xs font-bold">${formatTime(flight.takeoffTime)}</td>
+                <td class="p-2.5 font-mono text-[11px]">
+                    ${isAero ? `<div>Vlečná: ${formatTime(flight.towLandingTime)}</div>` : ''}
+                    <div>Větroň: ${formatTime(flight.gliderLandingTime)}</div>
+                </td>
+                <td class="p-2.5 font-mono font-bold text-xs">
+                    ${isAero ? `<div class="text-amber-800">Vlečná: ${flight.towDuration || '-'}</div>` : ''}
+                    <div class="text-blue-600">Větroň: ${flight.gliderDuration || '-'}</div>
+                </td>
+                <td class="p-2.5 text-center">
+                    ${isAdmin ? `
+                        <div class="flex items-center justify-center space-x-1">
+                            <button onclick="openEditModal(${flight.id})" class="text-slate-400 hover:text-blue-600 p-1" title="Upravit let">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="openDeleteModal(${flight.id})" class="text-slate-400 hover:text-red-600 p-1" title="Smazat let">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    ` : `<span class="text-xs text-slate-300">-</span>`}
+                </td>
+            `;
+            return row;
+        }
+
+        // ==========================================
+        // 7. HISTORIE & FILTRY & LOGY
+        // ==========================================
+        window.openDeleteModal = function(id) {
+            if (!userIsAdminForCurrentAirport()) return;
+            flightToDeleteId = id;
+            currentRandomCode = String(Math.floor(1000 + Math.random() * 9000));
+            document.getElementById('delete-random-number-display').textContent = currentRandomCode;
+            document.getElementById('delete-confirm-input').value = '';
+            document.getElementById('delete-error-msg').classList.add('hidden');
+            document.getElementById('delete-modal').classList.remove('hidden');
+        };
+
+        window.closeDeleteModal = function() { document.getElementById('delete-modal').classList.add('hidden'); flightToDeleteId = null; };
+
+        window.executeDeleteFlight = function() {
+            if (!userIsAdminForCurrentAirport()) return;
+            const inputVal = document.getElementById('delete-confirm-input').value.trim();
+            if (inputVal !== currentRandomCode) {
+                document.getElementById('delete-error-msg').classList.remove('hidden');
+                return;
+            }
+
+            const targetFlight = activeFlights.find(f => f.id === flightToDeleteId) || completedFlights.find(f => f.id === flightToDeleteId);
+
+            activeFlights = activeFlights.filter(f => f.id !== flightToDeleteId);
+            completedFlights = completedFlights.filter(f => f.id !== flightToDeleteId);
+
+            saveData();
+            if (targetFlight) {
+                const isAero = targetFlight.launchType === 'Aerovlek';
+                logAction('Smazání letu', `Smazán let letadla ${targetFlight.aircraft}, pilot: ${targetFlight.pilot} | Vzlet: ${formatTime(targetFlight.takeoffTime)}, Přistání větroně: ${formatTime(targetFlight.gliderLandingTime)}${isAero ? `, Přistání vlečné: ${formatTime(targetFlight.towLandingTime)}` : ''}`);
+            }
+
+            if (currentTab === 'today') renderTodayView();
+            else applyHistoryFilters();
+            closeDeleteModal();
+        };
+
+        window.openEditModal = function(id) {
+            if (!userIsAdminForCurrentAirport()) { openAuthModal(); return; }
+            let flight = activeFlights.find(f => f.id === id) || completedFlights.find(f => f.id === id);
+            if (!flight) return;
+
+            document.getElementById('edit-flight-id').value = flight.id;
+            document.getElementById('edit-task-name').value = flight.task && flight.task !== '-' ? flight.task : '';
+            document.getElementById('edit-takeoff-time').value = formatTimeInput(flight.takeoffTime);
+
+            const towContainer = document.getElementById('edit-tow-landing-container');
+            if (flight.launchType === 'Aerovlek') {
+                towContainer.classList.remove('hidden');
+                document.getElementById('edit-tow-landing-time').value = formatTimeInput(flight.towLandingTime);
+            } else {
+                towContainer.classList.add('hidden');
+            }
+
+            document.getElementById('edit-glider-landing-time').value = formatTimeInput(flight.gliderLandingTime);
+            editModal.classList.remove('hidden');
+        };
+
+        window.closeEditModal = function() { editModal.classList.add('hidden'); };
+
+        editFlightForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!userIsAdminForCurrentAirport()) return;
+
+            const id = Number(document.getElementById('edit-flight-id').value);
+            let flight = activeFlights.find(f => f.id === id) || completedFlights.find(f => f.id === id);
+            if (!flight) return;
+
+            const oldTakeoff = formatTime(flight.takeoffTime);
+            const oldGliderLand = formatTime(flight.gliderLandingTime);
+            const oldTowLand = flight.launchType === 'Aerovlek' ? formatTime(flight.towLandingTime) : null;
+
+            const taskStr = document.getElementById('edit-task-name').value.trim();
+            const takeoffStr = document.getElementById('edit-takeoff-time').value;
+            const towLandingStr = document.getElementById('edit-tow-landing-time').value;
+            const gliderLandingStr = document.getElementById('edit-glider-landing-time').value;
+
+            flight.task = taskStr || '-';
+            if (takeoffStr) flight.takeoffTime = createIsoFromTimeString(flight.takeoffTime, takeoffStr);
+
+            if (flight.launchType === 'Aerovlek') {
+                if (towLandingStr) flight.towLandingTime = createIsoFromTimeString(flight.towLandingTime || flight.takeoffTime, towLandingStr);
+                else { flight.towLandingTime = null; flight.towDuration = '-'; }
+            }
+
+            if (gliderLandingStr) flight.gliderLandingTime = createIsoFromTimeString(flight.gliderLandingTime || flight.takeoffTime, gliderLandingStr);
+            else { flight.gliderLandingTime = null; flight.gliderDuration = '-'; }
+
+            recalculateDurations(flight);
+
+            activeFlights = activeFlights.filter(f => f.id !== id);
+            completedFlights = completedFlights.filter(f => f.id !== id);
+
+            const isAero = flight.launchType === 'Aerovlek';
+            const isFinished = isAero ? (Boolean(flight.towLandingTime) && Boolean(flight.gliderLandingTime)) : Boolean(flight.gliderLandingTime);
+
+            if (isFinished) {
+                if (!flight.endedBy) {
+                    flight.endedBy = currentUserData?.fullName || currentUser?.email || 'Neznámý';
+                }
+                completedFlights.unshift(flight);
+            } else {
+                flight.endedBy = null;
+                activeFlights.unshift(flight);
+            }
+
+            saveData();
+
+            let editDetails = `Upraven let ${flight.aircraft} (pilot: ${flight.pilot}) | Vzlet: ${oldTakeoff} -> ${formatTime(flight.takeoffTime)}, Přistání větroně: ${oldGliderLand} -> ${formatTime(flight.gliderLandingTime)}`;
+            if (isAero) {
+                editDetails += `, Přistání vlečné: ${oldTowLand} -> ${formatTime(flight.towLandingTime)}`;
+            }
+
+            logAction('Úprava letu', editDetails);
+
+            if (currentTab === 'today') renderTodayView();
+            else applyHistoryFilters();
+
+            closeEditModal();
+        });
+
+        window.switchTab = function(tabName) {
+            currentTab = tabName;
+            const todayContent = document.getElementById('tab-today-content');
+            const historyContent = document.getElementById('tab-history-content');
+            const logsContent = document.getElementById('tab-logs-content');
+
+            const todayBtn = document.getElementById('tab-today-btn');
+            const historyBtn = document.getElementById('tab-history-btn');
+            const logsBtn = document.getElementById('tab-logs-btn');
+
+            todayContent.classList.add('hidden');
+            historyContent.classList.add('hidden');
+            logsContent.classList.add('hidden');
+
+            todayBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+            historyBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+            logsBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+
+            if (tabName === 'today') {
+                todayContent.classList.remove('hidden');
+                todayBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+                renderTodayView();
+            } else if (tabName === 'history') {
+                historyContent.classList.remove('hidden');
+                historyBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+                populateFilterAircraftOptions();
+                applyHistoryFilters();
+            } else if (tabName === 'logs') {
+                logsContent.classList.remove('hidden');
+                logsBtn.className = "btn-touch flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+                applyLogFilters();
+            }
+        };
+
+        window.resetLogFilters = function() {
+            document.getElementById('filter-log-search').value = '';
+            document.getElementById('filter-log-type').value = '';
+            document.getElementById('filter-log-date-from').value = '';
+            document.getElementById('filter-log-date-to').value = '';
+            applyLogFilters();
+        };
+
+        window.applyLogFilters = function() {
+            const search = document.getElementById('filter-log-search').value.toLowerCase().trim();
+            const typeFilter = document.getElementById('filter-log-type').value;
+            const dateFrom = document.getElementById('filter-log-date-from').value;
+            const dateTo = document.getElementById('filter-log-date-to').value;
+
+            const filtered = auditLogs.filter(log => {
+                if (search) {
+                    const userStr = (log.user || '').toLowerCase();
+                    const detailsStr = (log.details || '').toLowerCase();
+                    const typeStr = (log.type || '').toLowerCase();
+                    if (!userStr.includes(search) && !detailsStr.includes(search) && !typeStr.includes(search)) return false;
+                }
+                if (typeFilter) {
+                    if (!log.type.toLowerCase().includes(typeFilter.toLowerCase())) return false;
+                }
+
+                const logDateStr = getYYYYMMDD(log.timestamp);
+                if (dateFrom && logDateStr < dateFrom) return false;
+                if (dateTo && logDateStr > dateTo) return false;
+
+                return true;
+            });
+
+            renderAuditLogsTable(filtered);
+        };
+
+        function renderAuditLogsTable(logsToRender) {
+            const tbody = document.getElementById('logs-table-body');
+            const noMsg = document.getElementById('no-logs-msg');
+            tbody.innerHTML = '';
+
+            if (!logsToRender || logsToRender.length === 0) {
+                noMsg.classList.remove('hidden');
+                return;
+            } else {
+                noMsg.classList.add('hidden');
+            }
+
+            logsToRender.forEach(log => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-50 transition border-b border-slate-100 text-slate-800 text-xs";
+
+                let badgeColor = "bg-blue-100 text-blue-800 border-blue-200";
+                if (log.type.includes('Smazání')) badgeColor = "bg-red-100 text-red-800 border-red-200";
+                else if (log.type.includes('Ukončení') || log.type.includes('Přistání')) badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-200";
+                else if (log.type.includes('Úprava')) badgeColor = "bg-amber-100 text-amber-800 border-amber-200";
+
+                row.innerHTML = `
+                    <td class="p-2.5 font-mono text-[11px] text-slate-500">${formatTime(log.timestamp)} <span class="text-[10px] text-slate-400">(${getYYYYMMDD(log.timestamp)})</span></td>
+                    <td class="p-2.5 font-bold text-slate-900">${log.user || 'Neznámý'}</td>
+                    <td class="p-2.5"><span class="px-2 py-0.5 rounded border font-bold text-[11px] ${badgeColor}">${log.type}</span></td>
+                    <td class="p-2.5 font-medium text-slate-700">${log.details || '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function populateFilterAircraftOptions() {
+            const select = document.getElementById('filter-aircraft');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">Všechna letadla</option>';
+
+            const allAircrafts = new Set();
+            completedFlights.forEach(f => {
+                if (f.aircraft) allAircrafts.add(f.aircraft);
+                if (f.towAircraft) allAircrafts.add(f.towAircraft);
+            });
+
+            Array.from(allAircrafts).sort().forEach(ac => {
+                const opt = document.createElement('option');
+                opt.value = ac;
+                opt.textContent = ac;
+                select.appendChild(opt);
+            });
+            select.value = currentVal;
+        }
+
+        window.resetFilters = function() {
+            document.getElementById('filter-search').value = '';
+            document.getElementById('filter-aircraft').value = '';
+            document.getElementById('filter-launch').value = '';
+            document.getElementById('filter-date-from').value = '';
+            document.getElementById('filter-date-to').value = '';
+            applyHistoryFilters();
+        };
+
+        window.applyHistoryFilters = function() {
+            const search = document.getElementById('filter-search').value.toLowerCase().trim();
+            const aircraft = document.getElementById('filter-aircraft').value;
+            const launch = document.getElementById('filter-launch').value;
+            const dateFrom = document.getElementById('filter-date-from').value;
+            const dateTo = document.getElementById('filter-date-to').value;
+
+            const filtered = completedFlights.filter(flight => {
+                if (search) {
+                    const p = (flight.pilot || '').toLowerCase();
+                    const cp = (flight.copilot || '').toLowerCase();
+                    const tp = (flight.towPilot || '').toLowerCase();
+                    const t = (flight.task || '').toLowerCase();
+                    const starter = (flight.createdBy || '').toLowerCase();
+                    const ended = (flight.endedBy || '').toLowerCase();
+                    if (!p.includes(search) && !cp.includes(search) && !tp.includes(search) && !t.includes(search) && !starter.includes(search) && !ended.includes(search)) return false;
+                }
+                if (aircraft && flight.aircraft !== aircraft && flight.towAircraft !== aircraft) return false;
+                if (launch && flight.launchType !== launch) return false;
+
+                const flightDateStr = getYYYYMMDD(flight.takeoffTime);
+                if (dateFrom && flightDateStr < dateFrom) return false;
+                if (dateTo && flightDateStr > dateTo) return false;
+
+                return true;
+            });
+
+            renderHistoryDays(filtered);
+        };
+
+        function renderHistoryDays(flights) {
+            const container = document.getElementById('history-days-container');
+            const noMsg = document.getElementById('no-history-msg');
+            container.innerHTML = '';
+
+            if (flights.length === 0) {
+                noMsg.classList.remove('hidden');
+                return;
+            } else {
+                noMsg.classList.add('hidden');
+            }
+
+            const grouped = {};
+            flights.forEach(f => {
+                const dateKey = getYYYYMMDD(f.takeoffTime);
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(f);
+            });
+
+            const sortedDates = Object.keys(grouped).sort().reverse();
+            const isAdmin = userIsAdminForCurrentAirport();
+
+            sortedDates.forEach(dateStr => {
+                const dayFlights = grouped[dateStr];
+                let totalGliderSecs = 0;
+                let totalTowSecs = 0;
+
+                dayFlights.forEach(f => {
+                    totalGliderSecs += getDurationInSeconds(f.takeoffTime, f.gliderLandingTime);
+                    if (f.towLandingTime) totalTowSecs += getDurationInSeconds(f.takeoffTime, f.towLandingTime);
+                });
+
+                const dayCard = document.createElement('section');
+                dayCard.className = "bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden";
+
+                dayCard.innerHTML = `
+                    <div class="bg-slate-900 text-white p-4 flex flex-wrap justify-between items-center gap-3">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="calendar" class="w-5 h-5 text-blue-400"></i>
+                            <h3 class="font-bold text-sm sm:text-base capitalize">${formatCzechDate(dateStr)}</h3>
+                            <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-bold">${dayFlights.length} letů</span>
+                        </div>
+                        <div class="flex items-center space-x-4 text-xs font-mono">
+                            <div class="text-blue-300">Větroně: <strong class="text-white">${formatSecondsToHHMMSS(totalGliderSecs)}</strong></div>
+                            ${totalTowSecs > 0 ? `<div class="text-amber-300">Vlečné: <strong class="text-white">${formatSecondsToHHMMSS(totalTowSecs)}</strong></div>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="p-4 overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="p-2.5">Letadlo / Vlečná</th>
+                                    <th class="p-2.5">Posádka / Vlekař</th>
+                                    <th class="p-2.5">Úloha / Zapsal</th>
+                                    <th class="p-2.5">Start</th>
+                                    <th class="p-2.5">Vzlet</th>
+                                    <th class="p-2.5">Přistání Vlečná / Větroň</th>
+                                    <th class="p-2.5">Doba letu</th>
+                                    <th class="p-2.5 text-center">Akce</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                ${dayFlights.map(f => {
+                                    const isAero = f.launchType === 'Aerovlek';
+                                    return `
+                                        <tr class="hover:bg-slate-50 transition border-b border-slate-100 text-slate-800">
+                                            <td class="p-2.5">
+                                                <div class="font-bold text-xs">${getRegistration(f.aircraft)}</div>
+                                                ${isAero ? `<div class="text-[11px] text-amber-800 font-semibold">Vlečná: ${getRegistration(f.towAircraft)}</div>` : ''}
+                                            </td>
+                                            <td class="p-2.5">
+                                                <div class="text-xs font-semibold">${f.pilot || '-'}${f.copilot && f.copilot !== '-' ? ` / ${f.copilot}` : ''}</div>
+                                                ${isAero ? `<div class="text-[11px] text-amber-800 font-medium">Vlekař: ${f.towPilot || '-'}</div>` : ''}
+                                            </td>
+                                            <td class="p-2.5 text-xs">
+                                                <div class="font-semibold text-blue-700">${f.task || '-'}</div>
+                                                <div class="text-[10px] text-slate-500">Start: <strong>${f.createdBy || 'Neznámý'}</strong></div>
+                                                <div class="text-[10px] text-emerald-700">Přistání: <strong>${f.endedBy || 'Neznámý'}</strong></div>
+                                            </td>
+                                            <td class="p-2.5 text-[11px] font-semibold text-slate-600">${f.launchType || '-'}</td>
+                                            <td class="p-2.5 font-mono text-xs font-bold">${formatTime(f.takeoffTime)}</td>
+                                            <td class="p-2.5 font-mono text-[11px]">
+                                                ${isAero ? `<div>Vlečná: ${formatTime(f.towLandingTime)}</div>` : ''}
+                                                <div>Větroň: ${formatTime(f.gliderLandingTime)}</div>
+                                            </td>
+                                            <td class="p-2.5 font-mono font-bold text-xs">
+                                                ${isAero ? `<div class="text-amber-800">Vlečná: ${f.towDuration || '-'}</div>` : ''}
+                                                <div class="text-blue-600">Větroň: ${f.gliderDuration || '-'}</div>
+                                            </td>
+                                            <td class="p-2.5 text-center">
+                                                ${isAdmin ? `
+                                                    <div class="flex items-center justify-center space-x-1">
+                                                        <button onclick="openEditModal(${f.id})" class="text-slate-400 hover:text-blue-600 p-1" title="Upravit let">
+                                                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                                        </button>
+                                                        <button onclick="openDeleteModal(${f.id})" class="text-slate-400 hover:text-red-600 p-1" title="Smazat let">
+                                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                        </button>
+                                                    </div>
+                                                ` : `<span class="text-xs text-slate-300">-</span>`}
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                container.appendChild(dayCard);
+            });
+
+            lucide.createIcons();
+        }
+
+        setInterval(() => {
+            document.querySelectorAll('.timer').forEach(timerEl => {
+                const startTime = timerEl.getAttribute('data-start');
+                if (startTime) timerEl.textContent = getDurationFormatted(startTime);
+            });
+        }, 1000);
+
+        function generateCSV(flightList, filename) {
+            if (flightList.length === 0) { alert('Žádné lety k exportu.'); return; }
+            let csv = "\uFEFF";
+            csv += "Datum;Imatrikulace Vetron;Pilot Vetron;Druhy pilot;Uloha;Zapsal Start;Ukoncil Pristani;Typ startu;Vzlet;Pristani Vetron;Doba letu Vetron;Imatrikulace Vlecne;Vlekar;Pristani Vlecne;Doba letu Vlecne\n";
+
+            flightList.forEach(f => {
+                const dStr = getYYYYMMDD(f.takeoffTime);
+                const row = [
+                    `"${dStr}"`, `"${getRegistration(f.aircraft)}"`, `"${f.pilot || '-'}"`, `"${f.copilot || '-'}"`,
+                    `"${f.task || '-'}"`, `"${f.createdBy || 'Neznamy'}"`, `"${f.endedBy || 'Neznamy'}"`, `"${f.launchType || '-'}"`, `"${formatTime(f.takeoffTime)}"`,
+                    `"${formatTime(f.gliderLandingTime)}"`, `"${f.gliderDuration || '-'}"`,
+                    `"${getRegistration(f.towAircraft) || '-'}"`, `"${f.towPilot || '-'}"`, `"${formatTime(f.towLandingTime)}"`,
+                    `"${f.towDuration || '-'}"`
+                ].join(";");
+                csv += row + "\n";
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.exportTodayCSV = function() {
+            const todayStr = getYYYYMMDD(new Date());
+            const todaysFlights = completedFlights.filter(f => getYYYYMMDD(f.takeoffTime) === todayStr);
+            generateCSV(todaysFlights, `startovka_${currentAirportId}_dnesek_${todayStr}.csv`);
+        };
+
+        window.exportFilteredCSV = function() {
+            const search = document.getElementById('filter-search').value.toLowerCase().trim();
+            const aircraft = document.getElementById('filter-aircraft').value;
+            const launch = document.getElementById('filter-launch').value;
+            const dateFrom = document.getElementById('filter-date-from').value;
+            const dateTo = document.getElementById('filter-date-to').value;
+
+            const filtered = completedFlights.filter(flight => {
+                if (search) {
+                    const p = (flight.pilot || '').toLowerCase();
+                    const cp = (flight.copilot || '').toLowerCase();
+                    const tp = (flight.towPilot || '').toLowerCase();
+                    const t = (flight.task || '').toLowerCase();
+                    const starter = (flight.createdBy || '').toLowerCase();
+                    const ended = (flight.endedBy || '').toLowerCase();
+                    if (!p.includes(search) && !cp.includes(search) && !tp.includes(search) && !t.includes(search) && !starter.includes(search) && !ended.includes(search)) return false;
+                }
+                if (aircraft && flight.aircraft !== aircraft && flight.towAircraft !== aircraft) return false;
+                if (launch && flight.launchType !== launch) return false;
+                const flightDateStr = getYYYYMMDD(flight.takeoffTime);
+                if (dateFrom && flightDateStr < dateFrom) return false;
+                if (dateTo && flightDateStr > dateTo) return false;
+                return true;
+            });
+
+            generateCSV(filtered, `startovka_${currentAirportId}_historie.csv`);
+        };
+
+        populateAircraftSelects();
+        populateTowPilotSelect();
+        updateUIForPermissions();
+    </script>
+</body>
+</html>
