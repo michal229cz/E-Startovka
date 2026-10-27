@@ -1,6 +1,6 @@
 # Nasazení na Firebase Hosting – e-startovka-2
 
-Balíček v5.2.8 má modré přihlašovací pozadí a přípravu samostatné verze pro Hosting. Níže uvedené příkazy spouštíte vy ve svém terminálu v rozbalené složce `estartovka-secure`. V tomto chatu nebyl web nasazen.
+Balíček v5.2.9 má modré přihlašovací pozadí a přípravu samostatné verze pro Hosting. Níže uvedené příkazy spouštíte vy ve svém terminálu v rozbalené složce `estartovka-secure`. V tomto chatu nebyl web nasazen.
 
 ## 1. Připravte skutečný projekt
 
@@ -39,6 +39,20 @@ npx firebase login
 ```
 
 V otevřeném prohlížeči vyberte Google účet s oprávněním spravovat projekt e-startovka-2. Hesla, OAuth tokeny ani servisní klíče se neposílají do chatu.
+
+## Jednorázová oprava staré funkce onUserCreatedRole
+
+Pokud CLI hlásí `Functions cannot be downgraded from GCFv2 to GCFv1` pro onUserCreatedRole, používejte opravený functions/index.js z této verze. Export onUserCreatedRole je odstraněný: registrace nyní vytváří pouze guest profil přímo pod kontrolou databázových pravidel a server čte role z chráněných záznamů. Nové vydání nasazuje pět callable funkcí Gen 2.
+
+Starou již nasazenou funkci odstraňte jednorázově přes Firebase CLI:
+
+```sh
+npx firebase functions:delete default:onUserCreatedRole --region europe-west1 --project e-startovka-2
+```
+
+Před potvrzením v CLI ověřte, že seznam obsahuje pouze `onUserCreatedRole` v europe-west1. Příkaz odstraňuje tuto starou Cloud Function; neodstraňuje účty ani databázové záznamy. Použijte Firebase CLI, které při mazání spravuje také přidružené spouštěče. Funkce se z opraveného zdrojového kódu znovu nevytvoří.
+
+Na Windows v PowerShellu lze použít `npm.cmd` a `npx.cmd`, pokud systém blokuje jejich .ps1 variantu.
 
 ## 4. Nasaďte všechny části
 
