@@ -1,10 +1,12 @@
 # E-Startovka – import Ibisek v5.3.1
 
+**Oprava chyby časového pásma:** [malý balíček](oprava-importu-casove-pasmo.zip) a [postup](OPRAVA-IMPORTU-PASMO.md). Stačí nahradit dva backendové soubory a nasadit Functions. Plný balíček níže už opravu obsahuje. Prošlo 58 jednotkových testů; skutečná online odpověď po přepnutí pásma zatím nebyla ověřena.
+
 Nový balíček je **[estartovka-import-5.3.1.zip](estartovka-import-5.3.1.zip)**. Použití, nasazení, ověřené scénáře a omezení najdete v **[IMPORT-LETU.md](IMPORT-LETU.md)**.
 
 Z dodaného HTML LKST bylo ověřeno všech devět letů, převod Europe/Prague do UTC, doplnění posádky a opakovaný import bez duplicit. Online načítání je implementované s volitelným intervalem pěti minut, ale spojení z živého Firebase se zdrojem ještě není ověřené. Nejprve vyzkoušejte uložený HTML soubor, potom „Načíst nyní“. Živý Firebase ani main nebyly změněny.
 
-SHA-256: `7d05f8a2a5f8b92a93a92afd4dd0c8878af951620589df31b21a506ab613ed94`.
+SHA-256: `27a38fc70d5d545ca2aba636b98cd82cf6c7e5f306d8fb28440c53e30bba7ed9`.
 
 Původní balíček v5.2.9 a pracovní příprava v5.3.0 zůstávají pro historii. Jejich návody níže se vztahují k tehdejším verzím, nikoli k aktualizaci v5.3.1.
 

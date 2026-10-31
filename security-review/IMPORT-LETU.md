@@ -17,7 +17,7 @@ Dodaná stránka obsahuje devět dokončených letů OK-4704. Patička výslovn�
 5. Pro online ověření použijte **Načíst nyní**. Toto tlačítko načítá dnešek a včerejšek v UTC, nezávisle na datu zvoleném pro import souboru. Při chybě se zobrazí důvod ve stavu zdroje; uložené lety se nemažou.
 6. Po úspěšném online ověření lze zaškrtnout **Automaticky načítat dnešek a včerejšek každých 5 minut** a uložit. Každé letiště má vlastní adresu i přepínač. Bez uloženého zapnutí se naplánovaná funkce zdroje nedotazuje. Prázdnou adresou se zdroj odpojí a stávající lety zůstanou zachované.
 
-Online požadavek používá pevnou doménu `logbook.ibisek.com`, zakazuje přesměrování a žádá časové pásmo UTC pomocí preference `browser_timezone=UTC`. Odpověď musí pásmo UTC potvrdit. Pokud server odmítne přístup, vrátí jinou strukturu nebo pásmo nepotvrdí, neobchází se jeho omezení a import skončí chybou. Podle skutečné odpovědi bude případně potřeba upravit adaptér nebo získat podporované API od provozovatele.
+Online požadavek používá pevnou doménu `logbook.ibisek.com` a zakazuje přesměrování. Nejprve nastaví UTC přes `POST /set_timezone`, vyžaduje úspěšnou odpověď se serverovou cookie `session` a teprve s touto relací načte stránku. LOCAL se interpretuje jako nastavené UTC jen v takto připravené online relaci; výslovně uvedené jiné pásmo je chybou. Ručně nahrané HTML musí mít vlastní ověřitelný údaj o pásmu. Pokud server odmítne přístup, vrátí jinou strukturu nebo pásmo nepotvrdí, neobchází se jeho omezení a import skončí chybou. Podle skutečné odpovědi bude případně potřeba upravit adaptér nebo získat podporované API od provozovatele.
 
 ## Chování a omezení
 
@@ -49,7 +49,7 @@ Příprava zůstává oddělená: místní `public` používá demo emulátory, 
 
 ## Ověření
 
-- 53 jednotkových testů včetně autorizace, převodu dodaného HTML, časových pásem, limitů síťových odpovědí, duplicit, kolize s ručním záznamem, zachování posádky, změny konfigurace během běhu a rozestupu online pokusů.
+- 58 jednotkových testů včetně autorizace, převodu dodaného HTML, časových pásem, limitů síťových odpovědí, duplicit, kolize s ručním záznamem, zachování posádky, změny konfigurace během běhu a rozestupu online pokusů.
 - 19 testů databázových pravidel ve skutečném Database Emulatoru.
 - Stávající a nové prohlížečové scénáře s náhradou Firebase.
 - Skutečné Auth/Functions/Database emulátory: import devíti záznamů, ověření oprávnění, doplnění startérem, opakovaný import a smazání s tombstonem.
@@ -59,3 +59,5 @@ Příprava zůstává oddělená: místní `public` používá demo emulátory, 
 Živý projekt, skutečný běh Cloud Scheduleru a dostupnost Ibisek z infrastruktury Google nebyly ověřené. Test síťového transportu používá řízené odpovědi; není důkazem dostupnosti webu. `npm audit --omit=dev` ve functions uvádí 6 středně závažných nálezů v tranzitivním řetězci Google SDK (`gaxios`/`rimraf`/`glob`/`minimatch`); běžné `npm audit fix` je neodstranilo. Neprováděl se neověřený vynucený upgrade hlavních verzí.
 
 Pro místní kontrolu spusťte `npm test`, `npm run test:rules`, `npm run test:browser`, `npm run test:imports:browser`. Pro skutečné emulátory nejdříve spusťte `npm run emulators`, poté `npm run seed:emulator` a `python tests/imports_emulator.py`. Pro prohlížečový test proti emulátorům použijte po novém seedu `python tests/imports_browser_emulator.py` (Chromium/Playwright). Seed je pouze pro demo projekt a nikdy se nesmí použít na živá data.
+
+Oprava rozpoznání pásma a serverové timezone relace je popsána v OPRAVA-IMPORTU-PASMO.md.
