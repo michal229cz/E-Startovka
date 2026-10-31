@@ -1,3 +1,13 @@
+# E-Startovka – aktuálně v5.3.2
+
+**[Oprava data pro již nainstalovanou v5.3.1](oprava-importu-datum-5.3.2.zip)** · **[návod k opravě](OPRAVA-IMPORTU-DATUM.md)** · **[celý nový balíček](estartovka-import-5.3.2.zip)**.
+
+Oprava určuje datum uloženého HTML automaticky, přijímá různé zápisy data stránky a při online neshodě ukáže oba dny. Obsahuje předchozí opravu UTC. Vyžaduje nasadit Functions i Hosting. Prošlo 61 jednotkových testů a ověření automatického data ve skutečném prohlížeči s Firebase emulátory. Konkrétní odpověď aktuálního online zdroje zatím nebyla ověřená.
+
+Předchozí verze a návody níže zůstávají pro historii.
+
+---
+
 # E-Startovka – import Ibisek v5.3.1
 
 **Oprava chyby časového pásma:** [malý balíček](oprava-importu-casove-pasmo.zip) a [postup](OPRAVA-IMPORTU-PASMO.md). Stačí nahradit dva backendové soubory a nasadit Functions. Plný balíček níže už opravu obsahuje. Prošlo 58 jednotkových testů; skutečná online odpověď po přepnutí pásma zatím nebyla ověřena.
