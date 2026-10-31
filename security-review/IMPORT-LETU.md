@@ -1,45 +1,61 @@
-# Příprava importu letů – v5.3.0
+# Import letů Ibisek – v5.3.1
 
-**Toto je rozpracovaná verze. Automatické načítání z Ibisek zatím nefunguje.**
-Přístup na https://logbook.ibisek.com/loc/LKST z vývojového prostředí vrací CONNECT 403 i po udělení síťového přístupu. Nebyl ověřen endpoint, formát odpovědi, stabilní identifikátory letů, význam časů ani podmínky provozovatele. Proto není implementováno ani nasazeno periodické volání neznámého API. Samotné uložení odkazu žádný import nespustí. Ruční starty zůstávají funkční.
+Import uloženého HTML je ověřený proti dodané stránce LKST z 17. 10. 2026 a skutečným Firebase emulátorům. **Online načítání je implementované, ale spojení z živého Firebase s Ibisek zatím nebylo ověřeno.** Z tohoto vývojového prostředí web vrací HTTP 403. Do živého Firebase nebylo nic nasazeno.
 
-## Připravené chování
+## Co zdroj skutečně poskytuje
 
-- Ve **Správě letiště → Zdroj letů tohoto letiště** uloží správce vlastního letiště nebo superadmin odkaz ve tvaru `https://logbook.ibisek.com/loc/LKST`. Každé letiště má vlastní konfiguraci. Jiný kód lokace na stejném webu je podporovaný; další poskytovatelé vyžadují vlastní ověřený adaptér. Prázdný odkaz zdroj odpojí, již uložené lety nemaže.
-- Stav výslovně říká „Automatické načítání čeká na ověření API Ibisek“. Konfigurace je soukromá provozní informace letiště, není v katalogu pro nepřihlášené návštěvníky. Neukládají se API klíče ani tokeny.
-- Převzatý let bude označen **K doplnění**. Startér nebo správce doplní pilota, úlohu a způsob startu; druhý pilot je volitelný. U aerovleku je nutné doplnit také vlečné letadlo a vlekaře. Server potom nastaví **Doplněno** a zapíše auditní záznam.
-- Nad obsahem je rozbalovací seznam všech nedoplněných letů s počtem, včetně starších dní. Stav a tlačítko doplnění jsou i u jednotlivých letů v provozu a historii. Ručně zadané lety tuto povinnost nově nemají.
-- Posádku a úlohu lze doplnit za letu i po přistání. Doplnění nemění časy ani letadlo. Časy importovaného letu spravuje zdroj a nelze je přepsat běžnou editací či ručním přistáním. Dokončení zdrojového letu nezávisí na doplnění posádky.
-- Interní serverový modul umí bezpečně sloučit již převedenou dávku zdrojových letů: stabilní ID zabraňují duplicitám, opravy zachovají lidské údaje a chybějící položky v částečné odpovědi neznamenají smazání ani přistání. Smazání importovaného letu správcem vytváří tombstone, který zabrání jeho opětovnému vytvoření při dalším importu stejného zdrojového ID.
-- Lety vlečné a větroně se zatím nijak automaticky nepárují. Jejich skutečný vztah lze určit teprve podle informací poskytovaných API.
+Dodaný `index.js` nepotvrdil veřejné JSON API. Lety jsou už v HTML stránky. V sekci „Lety“ jsou spárované starty a přistání; samostatné seznamy odletů a příletů se nespojují odhadem. CSV odkaz je `/csv/loc/LKST/2026-10-17`, ale obsah exportu nebyl dodán ani ověřen, takže se zatím nepoužívá.
 
-## Co je potřeba k dokončení
+Dodaná stránka obsahuje devět dokončených letů OK-4704. Patička výslovně potvrzuje Europe/Prague; například 10:53 místního letního času se ukládá jako 08:53 UTC. Přesnost zdroje je jedna minuta. Časy se nepovažují automaticky za UTC a při chybějícím pásmu nebo nejednoznačnosti při změně letního času se import zastaví.
 
-Dokumentace nebo URL požadavku s letovými daty a anonymizovaná ukázka odpovědi. V prohlížeči otevřete stránku LKST, F12 → Network / Síť → Fetch/XHR, obnovte stránku a najděte odpověď s lety. Nesdílejte hesla, cookies, přístupové tokeny ani osobní údaje. Provozovatel může místo toho dodat dokumentaci API a pravidla jeho používání.
+## Vyzkoušení po nasazení
 
-Potom je potřeba vytvořit adaptér skutečné odpovědi do interního formátu v `functions/imports.js`, ověřit ID, časové pásmo, stránkování a opravy, přidat omezené serverové načítání se zabezpečením proti SSRF, timeoutem a limitem velikosti, zámek proti souběžným běhům, poslední úspěšnou synchronizaci, chyby a naplánování podle dovoleného intervalu. Nejdříve se musí ověřit proti zaznamenané anonymizované odpovědi a testovacímu letišti. Interní formát v testech není odhad schématu API Ibisek.
+1. Přihlaste se jako správce příslušného letiště nebo superadmin a otevřete **Správa letiště → Zdroj letů tohoto letiště**.
+2. Vložte `https://logbook.ibisek.com/loc/LKST` a uložte. Lze vložit také původní odkaz s datem nebo CSV odkaz; uloží se pouze lokace. Pro jiné letiště na stejném webu použijte jeho kód. Jiní poskytovatelé zatím podporovaní nejsou.
+3. Pro první ověření nechte automatické načítání vypnuté. V části **Import uložené stránky (HTML)** zvolte datum **2026-10-17**, vyberte svůj `OGN Logbook.html` a klikněte **Importovat soubor**. Skripty souboru se nespouštějí; maximální velikost je 512 KB. Soubor se neukládá na Hosting ani do databáze, ukládají se jen vybrané údaje letů.
+4. Nahoře bude přehled **K doplnění: 9 letů**, pokud už stejné lety nebyly převzaté nebo odstraněné. Jsou z historického data, takže je také najdete v Historii. Startér nebo správce vyplní pilota, úlohu a způsob startu; druhý pilot je nepovinný. U aerovleku je nutné doplnit vlečné letadlo a vlekaře. Potom se stav změní na **Doplněno**.
+5. Pro online ověření použijte **Načíst nyní**. Toto tlačítko načítá dnešek a včerejšek v UTC, nezávisle na datu zvoleném pro import souboru. Při chybě se zobrazí důvod ve stavu zdroje; uložené lety se nemažou.
+6. Po úspěšném online ověření lze zaškrtnout **Automaticky načítat dnešek a včerejšek každých 5 minut** a uložit. Každé letiště má vlastní adresu i přepínač. Bez uloženého zapnutí se naplánovaná funkce zdroje nedotazuje. Prázdnou adresou se zdroj odpojí a stávající lety zůstanou zachované.
 
-## Ověření této přípravy
+Online požadavek používá pevnou doménu `logbook.ibisek.com`, zakazuje přesměrování a žádá časové pásmo UTC pomocí preference `browser_timezone=UTC`. Odpověď musí pásmo UTC potvrdit. Pokud server odmítne přístup, vrátí jinou strukturu nebo pásmo nepotvrdí, neobchází se jeho omezení a import skončí chybou. Podle skutečné odpovědi bude případně potřeba upravit adaptér nebo získat podporované API od provozovatele.
 
-- 39 jednotkových testů: validace/autorizace, importní slučování, zachování lidských údajů, opravy, duplicity, tombstones a stávající bezpečnostní kontroly.
-- 19 testů pravidel ve skutečném Database Emulatoru: včetně zákazu přímých klientských změn zdrojové konfigurace a tombstones.
-- 10 stávajících prohlížečových scénářů v Chromium s náhradou Firebase.
-- Nové prohlížečové scénáře v Chromium s náhradou Firebase: fronta aktivních i starších ukončených letů, povinná pole, aerovlek, bezpečné vykreslení, volání serveru, konfigurace zdroje a odstranění soukromých údajů při odhlášení.
-- Sestavení a dvě kontroly oddělení živé a místní Hosting konfigurace.
-- Skutečný Firebase SDK potvrzuje u všech sedmi exportovaných funkcí callable Gen 2. Přibyly `saveFlightSource` a `completeFlightDetails`; plánovač se neexportuje.
+## Chování a omezení
 
-Nové callables byly testovány s paměťovou náhradou databáze; nebyly ověřeny proti živému Firebase projektu. Přenos z externího logbooku nebyl proveden. Nejsou k dispozici skutečná importovaná data ani ověření skutečného API.
+- Převzaté lety nevyžadují ruční start ani přistání. Odlet bez spárovaného přistání je aktivní, později se přidá zdrojové přistání. Povinnost doplnit posádku tomu nebrání. Přílet z jiného letiště se nevytváří jako nový místní start.
+- Posádka a úloha se zachovají při dalších importech i změně času přistání. Časy a registraci spravuje zdroj; ruční přistání a běžná editace časů jsou u převzatých letů blokované. U zdrojových letů se doba letu dopočítává ze zdrojových časů.
+- HTML neobsahuje neměnné ID letu. Identifikátor se proto odvozuje z lokace, registrace a času startu v UTC. Opakovaný stejný záznam se nevytvoří znovu. Pokud se změní čas startu nebo tabulky nesouhlasí, import se při zjištěné nejednoznačnosti zastaví a vyžádá kontrolu; nepřepisuje lidské údaje odhadem. Automatické opravy změněných startů nejsou podporované.
+- Smazaný převzatý let má serverový tombstone a další import stejného zdrojového ID jej neobnoví. Chybějící řádek v částečné odpovědi let nemaže a zmizení z párované tabulky samo o sobě nezruší dříve zjištěné přistání.
+- Při kolizi s ručně zapsaným letem stejné registrace ve stejné minutě se import zastaví pro kontrolu, místo aby vytvořil duplicitu. U téhož letu používejte jeden způsob zápisu.
+- Vlečná a větroň se nepárují automaticky. U aerovleku doplňujete údaje o vlečné ručně; zdrojová detekce samostatného letu vlečné není důkazem konkrétního vleku.
+- Zdroj zaznamená pouze lety, které zachytí OGN. Výpadek ani absence záznamu se nepovažují za potvrzené přistání. Ruční zápis zůstává dostupný pro nezachycené lety.
+- Nové požadavky mají 15sekundový timeout a limit 512 KB, odpověď se pouze parsuje. Žádné skripty, odkazy, obrázky ani jiné zdroje z HTML se nenačítají. Přístupy do letiště a serverové zápisy zůstávají chráněné rolemi a databázovými pravidly.
+- Zámek a kontrola revize konfigurace brání souběžnému importu nebo uložení odpovědi po změně/odpojení zdroje. Online pokusy mají minimální rozestup 5 minut; stejné zdroje se v jednom běhu plánovače načítají jen jednou.
 
-Příkazy pro testování:
+## Nasazení aktualizace
 
-```sh
-npm ci
-npm --prefix functions ci
-npm test
-npm run test:rules
-npm run test:browser
-npm run test:imports:browser
-npm run test:hosting
+Použijte celý balíček `estartovka-import-5.3.1.zip` rozbalený do nové složky. Zachovejte si předchozí lokální verzi a zálohu živé databáze. Starý hotfix obsahující pouze `functions/index.js` k této verzi nepatří.
+
+V PowerShellu ve složce `estartovka-secure`:
+
+```powershell
+npm.cmd ci
+npm.cmd --prefix functions ci
+npm.cmd run prepare:hosting
+npx.cmd firebase login
+npx.cmd firebase deploy --project e-startovka-2 --config firebase.production.json --only "database,functions,hosting"
 ```
 
-Plnou novou verzi přenášejte jako celek. Dřívější hotfix s jediným `functions/index.js` k této verzi nepatří: backend nově potřebuje také `functions/imports.js` a frontend nové formuláře i bundle. Balíček nemění existující živé soubory, dokud jej sami nenasadíte; změny v tomto chatu jsou pouze ve vývojovém prostoru a samostatné GitHub větvi.
+Příprava zůstává oddělená: místní `public` používá demo emulátory, produkční `hosting-release` skutečný projekt. Nasazuje se devět callable funkcí Gen 2 a jedna plánovaná Gen 2 funkce `syncAirportFlights`. První nasazení plánovače může vyžadovat povolení Cloud Scheduler API. Platí Firebase tarif Blaze a účtování příslušných služeb. V emulátorech je online synchronizace blokovaná; používá se import uloženého HTML.
+
+## Ověření
+
+- 53 jednotkových testů včetně autorizace, převodu dodaného HTML, časových pásem, limitů síťových odpovědí, duplicit, kolize s ručním záznamem, zachování posádky, změny konfigurace během běhu a rozestupu online pokusů.
+- 19 testů databázových pravidel ve skutečném Database Emulatoru.
+- Stávající a nové prohlížečové scénáře s náhradou Firebase.
+- Skutečné Auth/Functions/Database emulátory: import devíti záznamů, ověření oprávnění, doplnění startérem, opakovaný import a smazání s tombstonem.
+- Skutečný Chromium + Firebase SDK + emulátory: uložení zdroje, výběr HTML i data, načtení devíti letů, doplnění pilota a úlohy, historie a opakovaný import bez duplicit.
+- Build a kontroly oddělení produkční a místní Hosting konfigurace.
+
+Živý projekt, skutečný běh Cloud Scheduleru a dostupnost Ibisek z infrastruktury Google nebyly ověřené. Test síťového transportu používá řízené odpovědi; není důkazem dostupnosti webu. `npm audit --omit=dev` ve functions uvádí 6 středně závažných nálezů v tranzitivním řetězci Google SDK (`gaxios`/`rimraf`/`glob`/`minimatch`); běžné `npm audit fix` je neodstranilo. Neprováděl se neověřený vynucený upgrade hlavních verzí.
+
+Pro místní kontrolu spusťte `npm test`, `npm run test:rules`, `npm run test:browser`, `npm run test:imports:browser`. Pro skutečné emulátory nejdříve spusťte `npm run emulators`, poté `npm run seed:emulator` a `python tests/imports_emulator.py`. Pro prohlížečový test proti emulátorům použijte po novém seedu `python tests/imports_browser_emulator.py` (Chromium/Playwright). Seed je pouze pro demo projekt a nikdy se nesmí použít na živá data.

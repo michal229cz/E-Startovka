@@ -1,3 +1,15 @@
+# E-Startovka – import Ibisek v5.3.1
+
+Nový balíček je **[estartovka-import-5.3.1.zip](estartovka-import-5.3.1.zip)**. Použití, nasazení, ověřené scénáře a omezení najdete v **[IMPORT-LETU.md](IMPORT-LETU.md)**.
+
+Z dodaného HTML LKST bylo ověřeno všech devět letů, převod Europe/Prague do UTC, doplnění posádky a opakovaný import bez duplicit. Online načítání je implementované s volitelným intervalem pěti minut, ale spojení z živého Firebase se zdrojem ještě není ověřené. Nejprve vyzkoušejte uložený HTML soubor, potom „Načíst nyní“. Živý Firebase ani main nebyly změněny.
+
+SHA-256: `7d05f8a2a5f8b92a93a92afd4dd0c8878af951620589df31b21a506ab613ed94`.
+
+Původní balíček v5.2.9 a pracovní příprava v5.3.0 zůstávají pro historii. Jejich návody níže se vztahují k tehdejším verzím, nikoli k aktualizaci v5.3.1.
+
+---
+
 # E-Startovka – v5.2.9
 
 Stáhněte `estartovka-zabezpeceni-k-testovani.zip` přes **Download raw file** a rozbalte do samostatné složky.
