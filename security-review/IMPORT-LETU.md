@@ -1,4 +1,4 @@
-# Import letů Ibisek – v5.3.2
+# Import letů Ibisek – v5.3.3
 
 Import uloženého HTML je ověřený proti dodané stránce LKST z 17. 10. 2026 a skutečným Firebase emulátorům. **Online načítání je implementované, ale spojení z živého Firebase s Ibisek zatím nebylo ověřeno.** Z tohoto vývojového prostředí web vrací HTTP 403. Do živého Firebase nebylo nic nasazeno.
 
@@ -17,7 +17,7 @@ Dodaná stránka obsahuje devět dokončených letů OK-4704. Patička výslovn�
 5. Pro online ověření použijte **Načíst nyní**. Toto tlačítko načítá dnešek a včerejšek v UTC, nezávisle na datu zvoleném pro import souboru. Při chybě se zobrazí důvod ve stavu zdroje; uložené lety se nemažou.
 6. Po úspěšném online ověření lze zaškrtnout **Automaticky načítat dnešek a včerejšek každých 5 minut** a uložit. Každé letiště má vlastní adresu i přepínač. Bez uloženého zapnutí se naplánovaná funkce zdroje nedotazuje. Prázdnou adresou se zdroj odpojí a stávající lety zůstanou zachované.
 
-Online požadavek načítá pouze pevnou veřejnou adresu na `logbook.ibisek.com`, bez cookies, přesměrování nebo volání `/set_timezone`. Tento endpoint se na skutečném serveru ukázal jako nedostupný (404). Pásmo se určuje výhradně z výslovného UTC banneru nebo pojmenované zóny uvedené na stránce; LOCAL samo o sobě nestačí. Dnešek a včerejšek se vybírají podle této ověřené zóny a časy se převádějí do UTC. Pokud údaje chybějí nebo si odporují, import skončí konkrétní chybou. Při HTTP chybě se omezení zdroje neobcházejí.
+Online požadavek načítá pouze pevnou veřejnou adresu na `logbook.ibisek.com`, bez cookies, přesměrování nebo volání `/set_timezone`. Tento endpoint se na skutečném serveru ukázal jako nedostupný (404). Pásmo se určuje výhradně z výslovného UTC banneru nebo pojmenované zóny uvedené na stránce; LOCAL samo o sobě nestačí; při chybějícím konkrétním pásmu lze použít výslovně ověřené nastavení správce letiště, popsané v OPRAVA-IMPORTU-LOCAL.md. Dnešek a včerejšek se vybírají podle této ověřené zóny a časy se převádějí do UTC. Pokud údaje chybějí nebo si odporují, import skončí konkrétní chybou. Při HTTP chybě se omezení zdroje neobcházejí.
 
 
 ## Chování a omezení
@@ -34,7 +34,7 @@ Online požadavek načítá pouze pevnou veřejnou adresu na `logbook.ibisek.com
 
 ## Nasazení aktualizace
 
-Použijte celý balíček `estartovka-import-5.3.2.zip` rozbalený do nové složky. Zachovejte si předchozí lokální verzi a zálohu živé databáze. Starý hotfix obsahující pouze `functions/index.js` k této verzi nepatří.
+Použijte celý balíček `estartovka-import-5.3.3.zip` rozbalený do nové složky. Zachovejte si předchozí lokální verzi a zálohu živé databáze. Starý hotfix obsahující pouze `functions/index.js` k této verzi nepatří.
 
 V PowerShellu ve složce `estartovka-secure`:
 
@@ -50,7 +50,7 @@ Příprava zůstává oddělená: místní `public` používá demo emulátory, 
 
 ## Ověření
 
-- 61 jednotkových testů včetně autorizace, převodu dodaného HTML, časových pásem, limitů síťových odpovědí, duplicit, kolize s ručním záznamem, zachování posádky, změny konfigurace během běhu a rozestupu online pokusů.
+- 63 jednotkových testů včetně autorizace, převodu dodaného HTML, časových pásem, limitů síťových odpovědí, duplicit, kolize s ručním záznamem, zachování posádky, změny konfigurace během běhu a rozestupu online pokusů.
 - 19 testů databázových pravidel ve skutečném Database Emulatoru.
 - Stávající a nové prohlížečové scénáře s náhradou Firebase.
 - Skutečné Auth/Functions/Database emulátory: import devíti záznamů, ověření oprávnění, doplnění startérem, opakovaný import a smazání s tombstonem.
@@ -66,3 +66,5 @@ Oprava rozpoznání pásma a serverové timezone relace je popsána v OPRAVA-IMP
 Oprava rozpoznání data a automatické určení data uloženého HTML je popsána v OPRAVA-IMPORTU-DATUM.md.
 
 Aktuální oprava doložené chyby /set_timezone 404: OPRAVA-IMPORTU-404.md. Nahrazuje postup OPRAVA-IMPORTU-PASMO.md.
+
+Aktuální nastavení pásma pro zdroj LKST: OPRAVA-IMPORTU-LOCAL.md. Uživatel potvrdil Europe/Prague.

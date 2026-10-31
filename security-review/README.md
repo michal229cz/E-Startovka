@@ -1,3 +1,15 @@
+# Aktuálně: v5.3.3 – explicitní pásmo pro LOCAL
+
+**[Aktualizace stávající instalace](oprava-importu-local-5.3.3.zip)** · **[Postup a nastavení](OPRAVA-IMPORTU-LOCAL.md)** · **[Celý balíček](estartovka-import-5.3.3.zip)**.
+
+Uživatel potvrdil pro časy zdroje LKST český místní čas. Po aktualizaci Functions i Hostingu a obnovení webu nastavte ve správě LKST „Časové pásmo zdroje při označení LOCAL“ na **Europe/Prague** a uložte zdroj. Bez výslovného nastavení se nejednoznačné LOCAL nadále nepovažuje za konkrétní pásmo.
+
+Prošlo 63 jednotkových testů a skutečný prohlížeč s Firebase SDK a emulátory včetně nastavení pásma a importu LOCAL HTML. Úplné aktuální online načítání zatím nebylo ověřené. Živý Firebase nebyl z tohoto chatu měněn.
+
+Níže je historie předchozích oprav.
+
+---
+
 # Aktuální oprava: odstranění /set_timezone (HTTP 404)
 
 **[Malý opravný balíček pro v5.3.2](oprava-importu-404.zip)** · **[Postup](OPRAVA-IMPORTU-404.md)**.
