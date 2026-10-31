@@ -1,3 +1,13 @@
+# Aktuální oprava: odstranění /set_timezone (HTTP 404)
+
+**[Malý opravný balíček pro v5.3.2](oprava-importu-404.zip)** · **[Postup](OPRAVA-IMPORTU-404.md)**.
+
+Nahrazuje dva backendové soubory, stačí nasadit Functions. Volání /set_timezone a cookies byla odstraněna; import ověřuje pásmo přímo ve stránce a převádí potvrzené časové údaje do UTC. Prošlo 61 jednotkových testů. Aktuální plný balíček v5.3.2 tuto opravu už obsahuje. Skutečný online přenos po změně zatím není ověřený.
+
+Předchozí oprava časového pásma, která /set_timezone vyžadovala, je překonaná. Níže zůstává historie verzí.
+
+---
+
 # E-Startovka – aktuálně v5.3.2
 
 **[Oprava data pro již nainstalovanou v5.3.1](oprava-importu-datum-5.3.2.zip)** · **[návod k opravě](OPRAVA-IMPORTU-DATUM.md)** · **[celý nový balíček](estartovka-import-5.3.2.zip)**.

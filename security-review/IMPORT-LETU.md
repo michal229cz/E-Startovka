@@ -17,7 +17,8 @@ Dodaná stránka obsahuje devět dokončených letů OK-4704. Patička výslovn�
 5. Pro online ověření použijte **Načíst nyní**. Toto tlačítko načítá dnešek a včerejšek v UTC, nezávisle na datu zvoleném pro import souboru. Při chybě se zobrazí důvod ve stavu zdroje; uložené lety se nemažou.
 6. Po úspěšném online ověření lze zaškrtnout **Automaticky načítat dnešek a včerejšek každých 5 minut** a uložit. Každé letiště má vlastní adresu i přepínač. Bez uloženého zapnutí se naplánovaná funkce zdroje nedotazuje. Prázdnou adresou se zdroj odpojí a stávající lety zůstanou zachované.
 
-Online požadavek používá pevnou doménu `logbook.ibisek.com` a zakazuje přesměrování. Nejprve nastaví UTC přes `POST /set_timezone`, vyžaduje úspěšnou odpověď se serverovou cookie `session` a teprve s touto relací načte stránku. LOCAL se interpretuje jako nastavené UTC jen v takto připravené online relaci; výslovně uvedené jiné pásmo je chybou. Ručně nahrané HTML musí mít vlastní ověřitelný údaj o pásmu. Pokud server odmítne přístup, vrátí jinou strukturu nebo pásmo nepotvrdí, neobchází se jeho omezení a import skončí chybou. Podle skutečné odpovědi bude případně potřeba upravit adaptér nebo získat podporované API od provozovatele.
+Online požadavek načítá pouze pevnou veřejnou adresu na `logbook.ibisek.com`, bez cookies, přesměrování nebo volání `/set_timezone`. Tento endpoint se na skutečném serveru ukázal jako nedostupný (404). Pásmo se určuje výhradně z výslovného UTC banneru nebo pojmenované zóny uvedené na stránce; LOCAL samo o sobě nestačí. Dnešek a včerejšek se vybírají podle této ověřené zóny a časy se převádějí do UTC. Pokud údaje chybějí nebo si odporují, import skončí konkrétní chybou. Při HTTP chybě se omezení zdroje neobcházejí.
+
 
 ## Chování a omezení
 
@@ -63,3 +64,5 @@ Pro místní kontrolu spusťte `npm test`, `npm run test:rules`, `npm run test:b
 Oprava rozpoznání pásma a serverové timezone relace je popsána v OPRAVA-IMPORTU-PASMO.md.
 
 Oprava rozpoznání data a automatické určení data uloženého HTML je popsána v OPRAVA-IMPORTU-DATUM.md.
+
+Aktuální oprava doložené chyby /set_timezone 404: OPRAVA-IMPORTU-404.md. Nahrazuje postup OPRAVA-IMPORTU-PASMO.md.

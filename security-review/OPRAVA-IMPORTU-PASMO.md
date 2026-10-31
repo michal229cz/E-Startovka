@@ -1,3 +1,5 @@
+> **Historický postup – již nepoužívat.** Živý server `/set_timezone` neposkytuje. Aktuální oprava je v OPRAVA-IMPORTU-404.md a používá přímé načtení veřejné stránky s ověřením deklarovaného pásma.
+
 # Oprava importu: časové pásmo (pro v5.3.1)
 
 Původní parser hledal pouze českou větu s konkrétním pásmem. Patička ale může zobrazovat jen `ALL TIMES ARE YOURS LOCAL`. Samotné LOCAL neříká, které pásmo server použil.
